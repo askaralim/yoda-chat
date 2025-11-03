@@ -100,13 +100,13 @@ jobs:
             echo ""
             echo "🏥 Step 9: Health check loop (10 attempts, 5s interval)..."
             for i in {1..10}; do
-              if docker exec yoda-chat wget -q -O- http://localhost:3000/health 2>/dev/null | grep -q '"status":"ok"'; then
+              if docker exec yoda-chat wget -q -O- http://localhost:3000/api/chat/health 2>/dev/null | grep -q '"status":"healthy"'; then
                 echo "✅✅✅ DEPLOYMENT SUCCESSFUL! ✅✅✅"
                 echo "📊 Container status:"
                 docker ps | grep yoda-chat
                 echo ""
                 echo "📋 Health check response:"
-                docker exec yoda-chat wget -q -O- http://localhost:3000/health 2>/dev/null
+                docker exec yoda-chat wget -q -O- http://localhost:3000/api/chat/health 2>/dev/null
                 echo ""
                 echo "🎉 Application is healthy and responding!"
                 exit 0
@@ -116,7 +116,7 @@ jobs:
                   echo "📋 Container logs (last 10 lines):"
                   docker logs yoda-chat --tail 10 2>&1
                   echo "🔍 Testing health endpoint:"
-                  docker exec yoda-chat wget -q -O- http://localhost:3000/health 2>&1 | head -3 || echo "No response"
+                  docker exec yoda-chat wget -q -O- http://localhost:3000/api/chat/health 2>&1 | head -3 || echo "No response"
                 fi
                 sleep 5
               fi

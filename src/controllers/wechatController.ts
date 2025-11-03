@@ -48,7 +48,7 @@ export class WeChatController {
         return;
       }
 
-      // Parse XML to JSON
+      // Parse XML to JSON - using arrow function to preserve 'this' context
       parseString(xmlData, { explicitArray: false }, async (err: any, result: any) => {
         if (err) {
           console.error('XML parsing error:', err);
@@ -57,7 +57,10 @@ export class WeChatController {
         }
 
         const message = result.xml as WeChatMessage;
-        const { ToUserName, FromUserName, MsgType, Content } = message;
+        const { 
+          ToUserName, FromUserName, MsgType, Content
+          // , CreateTime, MsgId, MsgDataId, Idx 
+        } = message;
 
         // Echo the message back to WeChat server immediately (required by WeChat)
         res.writeHead(200, { 'Content-Type': 'application/xml' });
@@ -69,7 +72,7 @@ export class WeChatController {
             const answer = await chatbotAgent.processMessage(Content, FromUserName);
 
             // Format XML response
-            const responseXml = this.formatTextResponse(
+            const responseXml = WeChatController.formatTextResponse(
               ToUserName,
               FromUserName,
               answer
@@ -79,17 +82,36 @@ export class WeChatController {
           } catch (error) {
             console.error('Error processing message:', error);
             const errorMsg = 'Sorry, I encountered an error processing your message.';
-            const responseXml = this.formatTextResponse(
+            const responseXml = WeChatController.formatTextResponse(
               ToUserName,
               FromUserName,
               errorMsg
             );
             res.end(responseXml);
           }
+        } else if (MsgType === 'event') {
+          // Handle events
+          const event = message.Event;
+          const eventKey = message.EventKey;
+          if (event === 'subscribe') {
+            // Handle subscribe event
+            const responseXml = WeChatController.formatTextResponse(
+              ToUserName,
+              FromUserName,
+              'hello，欢迎关注「taklip太离谱」！\n如果有想了解的问题，可以直接在输入框发送信息，如果小助手无法回答就会去联系管事儿的。\n\n「taklip太离谱」还有个交流群，用于分享交流，有意加入可以添加微信：asikar\n Cheers!!'
+            );
+            res.end(responseXml);
+          }
+          const responseXml = WeChatController.formatTextResponse(
+            ToUserName,
+            FromUserName,
+            event || ''
+          );
+          res.end(responseXml);
         } else {
           // Handle non-text messages or events
           const defaultMsg = 'Please send me a text message.';
-          const responseXml = this.formatTextResponse(
+          const responseXml = WeChatController.formatTextResponse(
             ToUserName,
             FromUserName,
             defaultMsg
@@ -106,7 +128,7 @@ export class WeChatController {
   /**
    * Format text response as WeChat XML message
    */
-  formatTextResponse(toUser: string, fromUser: string, content: string): string {
+  static formatTextResponse(toUser: string, fromUser: string, content: string): string {
     const timestamp = Math.floor(Date.now() / 1000);
     return `<xml>
       <ToUserName><![CDATA[${fromUser}]]></ToUserName>
