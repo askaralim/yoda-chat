@@ -1,0 +1,35 @@
+{
+  "name": "yoda-chat",
+  "version": "1.0.0",
+  "description": "Content-based chatbot AI Agent for WeChat integration using GPT",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "chatbot",
+    "ai",
+    "gpt"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "mysql2": "^3.15.3",
+    "openai": "^6.7.0",
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.5",
+    "@types/xml2js": "^0.4.14",
+    "tsx": "^4.6.2",
+    "typescript": "^5.3.3"
+  }
+}

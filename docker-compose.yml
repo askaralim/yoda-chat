@@ -1,0 +1,36 @@
+services:
+  # Yoda Chat Service (Chatbot API - runs on port 3000 internally)
+  yoda-chat:
+    build:
+      context: ./yoda-chat
+      dockerfile: Dockerfile
+    image: yoda-chat:latest
+    container_name: yoda-chat
+    restart: unless-stopped
+    # Expose internally only, nginx will handle routing
+    expose:
+      - "3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://openai.api2d.net}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GPT_MODEL=${GPT_MODEL:-gpt-3.5-turbo}
+      - GPT_MAX_TOKENS=${GPT_MAX_TOKENS:-1000}
+      - GPT_TEMPERATURE=${GPT_TEMPERATURE:-0.7}
+      - WECHAT_TOKEN=${WECHAT_TOKEN}
+      - WECHAT_APPID=${WECHAT_APPID}
+      - WECHAT_APPSECRET=${WECHAT_APPSECRET}
+      - WECHAR_ENCODING_AES_KET=${WECHAR_ENCODING_AES_KET}
+    networks:
+      - taklip-shared-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  taklip-shared-network:
+    driver: bridge
