@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { parseString } from 'xml2js';
 import { Request, Response } from 'express';
 import { chatbotAgent } from '../services/chatService.js';
-import { WeChatMessage, WeChatQueryParams, WeChatTextResponse } from '../types/wechat.js';
+import { WeChatMessage, WeChatQueryParams } from '../types/wechat.js';
 
 export class WeChatController {
   /**

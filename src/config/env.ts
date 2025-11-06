@@ -17,6 +17,8 @@ export const config = {
     model: process.env.GPT_MODEL!,
     maxTokens: process.env.GPT_MAX_TOKENS!,
     temperature: process.env.GPT_TEMPERATURE!,
+    embeddingModel: process.env.GPT_EMBEDDING_MODEL!,
+    chunkSize: process.env.GPT_CHUNK_SIZE!,
   },
   wechat: {
     appid: process.env.WECHAT_APPID!,
@@ -24,4 +26,7 @@ export const config = {
     token: process.env.WECHAT_TOKEN!,
     encodingAESKey: process.env.WECHAT_ENCODING_AES_KEY!,
   },
+  qdrant: {
+    url: process.env.QDRANT_URL!,
+  }
 };

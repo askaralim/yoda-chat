@@ -12,12 +12,15 @@ export interface ChatCompletionRequest {
 }
 
 export interface ChatChoice {
+  index: number;
   message: {
     content: string;
   };
+  finish_reason: 'stop' | 'length' | 'tool_calls' | 'content_filter' | 'function_call';
 }
 
 export interface ChatCompletionResponse {
+  id: string;
   choices: ChatChoice[];
 }
 

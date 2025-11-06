@@ -1,36 +1,44 @@
-import axios, { AxiosResponse } from 'axios';
-import { ChatMessage, ChatCompletionRequest, ChatCompletionResponse } from '../types/chatcompletion.js';
-import OpenAI from 'openai';
+// Handle full RAG logic (retrieve + LLM answer)
 import { config } from '../config/env.js';
+import { openaiClient } from "../config/openai";
+import { qdrantClient } from "../config/qdrant";
+import { getEmbedding } from "../utils/embedding";
 
-const openaiClient = new OpenAI({
-  apiKey: config.openai.apiKey,
-  baseURL: config.openai.baseURL
-});
+export async function answerUserQuery(query: string) {
+  const queryEmbedding = await getEmbedding(query);
 
-export async function chatCompletion(prompt: string) {
-  const completion = await openaiClient.chat.completions.create({
+  const searchRes = await qdrantClient.search("knowledge", {
+    vector: queryEmbedding as any,
+    limit: 3,
+  });
+
+  const context = searchRes.map((r: any) => r.payload.text).join("\n");
+
+  const res = await openaiClient.chat.completions.create({
     model: config.gpt.model,
     messages: [
       {
-        role: 'system', 
-        content: '你是Taklip的AI助手，请用简洁、专业的中文回答用户的问题。不要输出任何其他内容，只输出回答。'
+        role: 'system',
+        content: '你是Taklip的AI助手，请用简洁、专业的中文回答用户的问题。不要输出任何其他内容，只输出回答。请遵循以下规则: 1. 基于上下文信息回答，不要编造不知道的内容 2. 如果上下文没有相关信息，请如实告知 3. 回答要专业、准确、友好 4. 适当使用表情符号让回答更生动 5. 如果用户问的是关于Taklip的内容，请优先使用Taklip的知识库回答，如果知识库没有相关信息，请如实告知'
       },
       {
         role: 'user',
-        content: prompt
-      }
+        content: `资料:\n${context}\n\n问题:${query}\n。`,
+      },
     ],
     max_tokens: parseInt(config.gpt.maxTokens),
-  }, {
-    headers: {
-      'Authorization': `Bearer ${config.openai.apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    timeout: 30000 // 30 seconds timeout
   });
 
-  return completion.choices[0]?.message.content;
+  if (res.choices && res.choices.length > 0) {
+    const choice = res.choices[0];
+    if (choice && choice.message) {
+      return choice.message.content?.trim() || '';
+    } else {
+      throw new Error('No message from OpenAI');
+    }
+  } else {
+    throw new Error('No choices from OpenAI');
+  }
 }
 
 // export class LLMService {

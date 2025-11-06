@@ -4,6 +4,8 @@ import { wechatRouter } from './routes/wechat.js';
 import { chatbotRouter } from './routes/chatbot.js';
 import { securityHeaders, corsConfig, rateLimiter } from './middleware/security.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { getAllArticles } from './services/dataServices.js';
+import { buildKnowledgeBase } from './services/vectorService.js';
 
 dotenv.config();
 
@@ -85,6 +87,12 @@ const server = app.listen(PORT, () => {
   console.log(`🏥 Health check: http://localhost:${PORT}${API_PREFIX}/health`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
+
+(async () => {
+  const articles = await getAllArticles();
+
+  // await buildKnowledgeBase(articles);
+})();
 
 // Graceful shutdown
 const gracefulShutdown = (signal: string): void => {

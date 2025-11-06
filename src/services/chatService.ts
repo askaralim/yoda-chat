@@ -1,4 +1,6 @@
-import { chatCompletion } from './llmService.js';
+// Handle full RAG logic (retrieve + LLM answer)
+
+import { answerUserQuery } from './llmService.js';
 import { ConversationMessage } from '../types/chatcompletion.js';
 
 export class ChatbotAgent {
@@ -18,40 +20,40 @@ export class ChatbotAgent {
   async processMessage(message: string, userId: string): Promise<string> {
     try {
       // Get or create conversation history for this user
-    //   if (!this.conversations.has(userId)) {
-    //     this.conversations.set(userId, []);
-    //   }
+      //   if (!this.conversations.has(userId)) {
+      //     this.conversations.set(userId, []);
+      //   }
 
-    //   const history = this.conversations.get(userId)!;
+      //   const history = this.conversations.get(userId)!;
 
-    //   // Add user message to history
-    //   history.push({
-    //     role: 'user',
-    //     content: message,
-    //     timestamp: new Date().toISOString()
-    //   });
+      //   // Add user message to history
+      //   history.push({
+      //     role: 'user',
+      //     content: message,
+      //     timestamp: new Date().toISOString()
+      //   });
 
-    //   // Build conversation context with history (last 10 messages for context)
-    //   const recentHistory = history.slice(-10);
-    //   const messages = recentHistory.map(msg => ({
-    //     role: msg.role,
-    //     content: msg.content
-    //   }));
+      //   // Build conversation context with history (last 10 messages for context)
+      //   const recentHistory = history.slice(-10);
+      //   const messages = recentHistory.map(msg => ({
+      //     role: msg.role,
+      //     content: msg.content
+      //   }));
 
       // Get AI response from LLM service
-      const aiResponse = await chatCompletion(message);
+      const aiResponse = await answerUserQuery(message);
 
-    //   // Add AI response to history
-    //   history.push({
-    //     role: 'assistant',
-    //     content: aiResponse,
-    //     timestamp: new Date().toISOString()
-    //   });
+      //   // Add AI response to history
+      //   history.push({
+      //     role: 'assistant',
+      //     content: aiResponse,
+      //     timestamp: new Date().toISOString()
+      //   });
 
-    //   // Keep conversation history manageable (last 50 messages)
-    //   if (history.length > 50) {
-    //     this.conversations.set(userId, history.slice(-50));
-    //   }
+      //   // Keep conversation history manageable (last 50 messages)
+      //   if (history.length > 50) {
+      //     this.conversations.set(userId, history.slice(-50));
+      //   }
 
       return aiResponse || 'Sorry, I am unable to answer that question.';
     } catch (error) {
