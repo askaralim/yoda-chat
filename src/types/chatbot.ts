@@ -18,6 +18,6 @@ export interface ConversationHistory {
 
 export interface ConversationMessage {
   role: 'user' | 'assistant';
-  content: string;
+  message: string;
   timestamp: string;
 }

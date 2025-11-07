@@ -1,16 +1,10 @@
 // Handle full RAG logic (retrieve + LLM answer)
 
 import { answerUserQuery } from './llmService.js';
-import { ConversationMessage } from '../types/chatcompletion.js';
+import { ConversationMessage, ConversationHistory } from '../types/chatbot.js';
+import { redisClient, ensureRedisConnected } from './cacheService.js';
 
 export class ChatbotAgent {
-  private conversations: Map<string, ConversationMessage[]>;
-
-  constructor() {
-    // In-memory conversation history (consider using Redis or database for production)
-    this.conversations = new Map();
-  }
-
   /**
    * Process a user message and return an AI-generated response
    * @param message - The user's message/question
@@ -19,41 +13,35 @@ export class ChatbotAgent {
    */
   async processMessage(message: string, userId: string): Promise<string> {
     try {
+      await ensureRedisConnected();
+
       // Get or create conversation history for this user
-      //   if (!this.conversations.has(userId)) {
-      //     this.conversations.set(userId, []);
-      //   }
+      const history = await redisClient.lRange(`conversation:${userId}`, 0, 9) as string[];
 
-      //   const history = this.conversations.get(userId)!;
+      // Add user message to history
+      await redisClient.lPush(`conversation:${userId}`, JSON.stringify({
+        role: 'user',
+        content: message,
+        timestamp: new Date().toISOString()
+      }));
 
-      //   // Add user message to history
-      //   history.push({
-      //     role: 'user',
-      //     content: message,
-      //     timestamp: new Date().toISOString()
-      //   });
-
-      //   // Build conversation context with history (last 10 messages for context)
-      //   const recentHistory = history.slice(-10);
-      //   const messages = recentHistory.map(msg => ({
-      //     role: msg.role,
-      //     content: msg.content
-      //   }));
+      // Build conversation context with history (last 10 messages for context)
+      const messages = history.map((msg: string) => JSON.parse(msg) as ConversationMessage);
 
       // Get AI response from LLM service
       const aiResponse = await answerUserQuery(message);
 
-      //   // Add AI response to history
-      //   history.push({
-      //     role: 'assistant',
-      //     content: aiResponse,
-      //     timestamp: new Date().toISOString()
-      //   });
+      // Add AI response to history
+      await redisClient.lPush(`conversation:${userId}`, JSON.stringify({
+        role: 'assistant',
+        message: aiResponse,
+        timestamp: new Date().toISOString()
+      }));
 
-      //   // Keep conversation history manageable (last 50 messages)
-      //   if (history.length > 50) {
-      //     this.conversations.set(userId, history.slice(-50));
-      //   }
+      // Keep conversation history manageable (last 50 messages)
+      if (history.length > 50) {
+        await redisClient.lTrim(`conversation:${userId}`, 0, 49);
+      }
 
       return aiResponse || 'Sorry, I am unable to answer that question.';
     } catch (error) {
@@ -67,16 +55,19 @@ export class ChatbotAgent {
    * @param userId - Unique identifier for the user
    * @returns Array of conversation messages
    */
-  getConversationHistory(userId: string): ConversationMessage[] {
-    return this.conversations.get(userId) || [];
+  async getConversationHistory(userId: string): Promise<ConversationMessage[]> {
+    await ensureRedisConnected();
+    const history = await redisClient.lRange(`conversation:${userId}`, 0, -1) as string[];
+    return history.map((msg: string) => JSON.parse(msg) as ConversationMessage);
   }
 
   /**
    * Clear conversation history for a user
    * @param userId - Unique identifier for the user
    */
-  clearHistory(userId: string): void {
-    this.conversations.delete(userId);
+  async clearHistory(userId: string): Promise<void> {
+    await ensureRedisConnected();
+    await redisClient.del(`conversation:${userId}`);
   }
 }
 

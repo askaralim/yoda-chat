@@ -2,8 +2,83 @@ import { Request, Response, NextFunction } from 'express';
 import { chatbotAgent } from '../services/chatService.js';
 import { ChatbotRequest, ChatbotResponse, ConversationHistory } from '../types/chatbot.js';
 import { CustomError } from '../middleware/errorHandler.js';
+import { buildKnowledgeBase, deleteKnowledgeBase } from '../services/vectorService.js';
+import { getAllContents, getContentById } from '../services/dataServices.js';
 
 export class ChatbotController {
+  /**
+   * Add knowledge documents
+   */
+  async addKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const content = await getContentById(id as string);
+      if (!content) {
+        throw new CustomError('Content not found', 404);
+      }
+      const knowledge = await buildKnowledgeBase([content]);
+      res.status(200).json({ message: 'Knowledge added successfully' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Bulk import knowledge
+   */
+  async bulkImportKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const contents = await getAllContents();
+      const knowledge = await buildKnowledgeBase(contents);
+      res.status(200).json({ message: 'Knowledge bulk imported successfully', knowledge });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Search knowledge
+   */
+  async searchKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    // try {
+    //   const { q } = req.query;
+    //   const results = await searchKnowledgeByKeyword(q as string);
+    //   res.status(200).json({ message: 'Knowledge searched successfully', results });
+    // } catch (error) {
+    //   next(error);
+    // }
+  }
+
+  /**
+   * Update knowledge
+   */
+  async updateKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const content = await getContentById(id as string);
+      if (!content) {
+        throw new CustomError('Content not found', 404);
+      }
+      const knowledge = await buildKnowledgeBase([content]);
+      res.status(200).json({ message: 'Knowledge updated successfully', knowledge });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete knowledge
+   */
+  async deleteKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      await deleteKnowledgeBase(id as string);
+      res.status(200).json({ message: 'Knowledge deleted successfully'});
+    } catch (error) {
+      next(error);
+    }
+  }
+
   /**
    * Test endpoint for chatbot - accepts a question and returns an answer
    */
@@ -45,12 +120,12 @@ export class ChatbotController {
   async getHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { userId } = req.params;
-      
+
       if (!userId || userId.trim().length === 0) {
         throw new CustomError('User ID is required', 400);
       }
 
-      const history = chatbotAgent.getConversationHistory(userId.trim());
+      const history = await chatbotAgent.getConversationHistory(userId.trim());
 
       const response: ConversationHistory = {
         userId: userId.trim(),

@@ -1,6 +1,6 @@
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  message: string;
 }
 
 export interface ChatCompletionRequest {
@@ -22,10 +22,4 @@ export interface ChatChoice {
 export interface ChatCompletionResponse {
   id: string;
   choices: ChatChoice[];
-}
-
-export interface ConversationMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string;
 }

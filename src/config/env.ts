@@ -9,6 +9,11 @@ export const config = {
     password: process.env.MYSQL_PASSWORD!,
     database: process.env.MYSQL_DATABASE!,
   },
+  redis: {
+    host: process.env.REDIS_HOST!,
+    port: process.env.REDIS_PORT!,
+    password: process.env.REDIS_PASSWORD!,
+  },
   openai: {
     apiKey: process.env.OPENAI_API_KEY!,
     baseURL: process.env.OPENAI_BASE_URL!,
@@ -17,8 +22,14 @@ export const config = {
     model: process.env.GPT_MODEL!,
     maxTokens: process.env.GPT_MAX_TOKENS!,
     temperature: process.env.GPT_TEMPERATURE!,
-    embeddingModel: process.env.GPT_EMBEDDING_MODEL!,
-    chunkSize: process.env.GPT_CHUNK_SIZE!,
+  },
+  vector: {
+    chunkSize: process.env.VECTOR_CHUNK_SIZE!,
+  },
+  embedding: {
+    model: process.env.EMBEDDING_MODEL!,
+    dimensions: process.env.EMBEDDING_DIMENSIONS!,
+    batchSize: process.env.EMBEDDING_BATCH_SIZE!,
   },
   wechat: {
     appid: process.env.WECHAT_APPID!,
@@ -28,5 +39,6 @@ export const config = {
   },
   qdrant: {
     url: process.env.QDRANT_URL!,
+    apiKey: process.env.QDRANT_API_KEY!,
   }
 };

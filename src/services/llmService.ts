@@ -1,45 +1,114 @@
 // Handle full RAG logic (retrieve + LLM answer)
-import { config } from '../config/env.js';
+import { SystemMessage } from "langchain";
+
 import { openaiClient } from "../config/openai";
-import { qdrantClient } from "../config/qdrant";
-import { getEmbedding } from "../utils/embedding";
+import { findSimilarChunks } from "./vectorService.js";
 
-export async function answerUserQuery(query: string) {
-  const queryEmbedding = await getEmbedding(query);
+export async function answerUserQuery(query: string): Promise<string> {
+  const retrievedChunks = await findSimilarChunks(query);
+  console.log('retrievedChunks: ' + JSON.stringify(retrievedChunks));
 
-  const searchRes = await qdrantClient.search("knowledge", {
-    vector: queryEmbedding as any,
-    limit: 3,
-  });
+  const relevantChunks = retrievedChunks.filter((chunk) => chunk.score >= 0.75);
 
-  const context = searchRes.map((r: any) => r.payload.text).join("\n");
+  const context = relevantChunks.length > 0 ? relevantChunks
+    .map((chunk) => {
+      const title = chunk.metadata.title ? `【${chunk.metadata.title}】\n` : "";
+      return `${title}${chunk.content}`;
+    })
+    .join("\n\n") : '';
 
-  const res = await openaiClient.chat.completions.create({
-    model: config.gpt.model,
-    messages: [
-      {
-        role: 'system',
-        content: '你是Taklip的AI助手，请用简洁、专业的中文回答用户的问题。不要输出任何其他内容，只输出回答。请遵循以下规则: 1. 基于上下文信息回答，不要编造不知道的内容 2. 如果上下文没有相关信息，请如实告知 3. 回答要专业、准确、友好 4. 适当使用表情符号让回答更生动 5. 如果用户问的是关于Taklip的内容，请优先使用Taklip的知识库回答，如果知识库没有相关信息，请如实告知'
-      },
-      {
-        role: 'user',
-        content: `资料:\n${context}\n\n问题:${query}\n。`,
-      },
-    ],
-    max_tokens: parseInt(config.gpt.maxTokens),
-  });
+    console.log('context: ' + context);
 
-  if (res.choices && res.choices.length > 0) {
-    const choice = res.choices[0];
-    if (choice && choice.message) {
-      return choice.message.content?.trim() || '';
-    } else {
-      throw new Error('No message from OpenAI');
-    }
-  } else {
-    throw new Error('No choices from OpenAI');
-  }
+  const systemPrompt = new SystemMessage(
+    "你是Taklip的AI助手，请用简洁、专业的中文回答用户的问题。不要输出任何其他内容，只输出回答。请遵循以下规则: 1. 基于上下文信息回答，不要编造不知道的内容 2. 如果上下文没有相关信息，请如实告知 3. 回答要专业、准确、友好 4. 适当使用表情符号让回答更生动 5. 如果用户问的是关于Taklip的内容，请优先使用Taklip的知识库回答，如果知识库没有相关信息，请如实告知",
+  );
+
+  const messages = [
+    systemPrompt,
+    {
+      role: "user" as const,
+      content: context
+        ? `以下是与用户问题相关的知识片段：\n${context}\n\n问题：${query}`
+        : `当前知识库中没有检索到相关内容。请直接回答以下问题（如果无法回答请说明原因）：${query}`,
+    },
+  ];
+
+  const response = await openaiClient.invoke(messages);
+
+  return response.content?.trim() || "";
 }
+
+// export async function answerUserQuery(query: string) {
+//   const vectorStore = await QdrantVectorStore.fromExistingCollection(embeddingClient, {
+//     url: config.qdrant.url,
+//     collectionName: "knowledge",
+//   });
+
+
+
+
+//   const queryEmbedding = await getEmbedding(query);
+
+//   const context = await findSimilarChunks(queryEmbedding as number[], 3);
+
+//   const res = await openaiClient.chat.completions.create({
+//     model: config.gpt.model,
+//     messages: [
+//       {
+//         role: 'system',
+//         content: '你是Taklip的AI助手，请用简洁、专业的中文回答用户的问题。不要输出任何其他内容，只输出回答。请遵循以下规则: 1. 基于上下文信息回答，不要编造不知道的内容 2. 如果上下文没有相关信息，请如实告知 3. 回答要专业、准确、友好 4. 适当使用表情符号让回答更生动 5. 如果用户问的是关于Taklip的内容，请优先使用Taklip的知识库回答，如果知识库没有相关信息，请如实告知'
+//       },
+//       {
+//         role: 'user',
+//         content: `资料:\n${context}\n\n问题:${query}\n。`,
+//       },
+//     ],
+//     max_tokens: parseInt(config.gpt.maxTokens),
+//   });
+
+//   if (res.choices && res.choices.length > 0) {
+//     const choice = res.choices[0];
+//     if (choice && choice.message) {
+//       return choice.message.content?.trim() || '';
+//     } else {
+//       throw new Error('No message from OpenAI');
+//     }
+//   } else {
+//     throw new Error('No choices from OpenAI');
+//   }
+// }
+
+// export async function answerUserQuery(query: string) {
+//   const queryEmbedding = await getEmbedding(query);
+
+//   const context = await findSimilarChunks(queryEmbedding as number[], 3);
+
+//   const res = await openaiClient.chat.completions.create({
+//     model: config.gpt.model,
+//     messages: [
+//       {
+//         role: 'system',
+//         content: '你是Taklip的AI助手，请用简洁、专业的中文回答用户的问题。不要输出任何其他内容，只输出回答。请遵循以下规则: 1. 基于上下文信息回答，不要编造不知道的内容 2. 如果上下文没有相关信息，请如实告知 3. 回答要专业、准确、友好 4. 适当使用表情符号让回答更生动 5. 如果用户问的是关于Taklip的内容，请优先使用Taklip的知识库回答，如果知识库没有相关信息，请如实告知'
+//       },
+//       {
+//         role: 'user',
+//         content: `资料:\n${context}\n\n问题:${query}\n。`,
+//       },
+//     ],
+//     max_tokens: parseInt(config.gpt.maxTokens),
+//   });
+
+//   if (res.choices && res.choices.length > 0) {
+//     const choice = res.choices[0];
+//     if (choice && choice.message) {
+//       return choice.message.content?.trim() || '';
+//     } else {
+//       throw new Error('No message from OpenAI');
+//     }
+//   } else {
+//     throw new Error('No choices from OpenAI');
+//   }
+// }
 
 // export class LLMService {
 //   private baseURL: string;

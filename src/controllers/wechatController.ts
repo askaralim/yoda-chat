@@ -81,7 +81,7 @@ export class WeChatController {
             res.end(responseXml);
           } catch (error) {
             console.error('Error processing message:', error);
-            const errorMsg = 'Sorry, I encountered an error processing your message.';
+            const errorMsg = '抱歉，我遇到了一个错误，无法回答你的问题。';
             const responseXml = WeChatController.formatTextResponse(
               ToUserName,
               FromUserName,

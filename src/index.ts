@@ -89,9 +89,13 @@ const server = app.listen(PORT, () => {
 });
 
 (async () => {
-  const articles = await getAllArticles();
+  try {
+    const articles = await getAllArticles();
 
-  // await buildKnowledgeBase(articles);
+    // await buildKnowledgeBase(articles);
+  } catch (error) {
+    console.error('Knowledge base bootstrap failed:', error);
+  }
 })();
 
 // Graceful shutdown
