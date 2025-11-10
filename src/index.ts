@@ -2,10 +2,12 @@ import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import { wechatRouter } from './routes/wechat.js';
 import { chatbotRouter } from './routes/chatbot.js';
+import { adminRouter } from './routes/admin.js';
 import { securityHeaders, corsConfig, rateLimiter } from './middleware/security.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import { getAllArticles } from './services/dataServices.js';
+import { getAllContents, getAllBrands } from './services/dataServices.js';
 import { buildKnowledgeBase } from './services/vectorService.js';
+import { config } from './config/env.js';
 
 dotenv.config();
 
@@ -35,6 +37,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // API Routes
 app.use(`${API_PREFIX}/wx`, wechatRouter);
 app.use(`${API_PREFIX}/chatbot`, chatbotRouter);
+app.use(`${API_PREFIX}/admin`, adminRouter);
 
 // Production-ready health check endpoint
 app.get(`${API_PREFIX}/health`, (req: Request, res: Response) => {
@@ -88,15 +91,24 @@ const server = app.listen(PORT, () => {
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-(async () => {
-  try {
-    const articles = await getAllArticles();
+if (config.features.bootstrapOnStart) {
+  (async () => {
+    try {
+      const [contents, brands] = await Promise.all([getAllContents(), getAllBrands()]);
 
-    // await buildKnowledgeBase(articles);
-  } catch (error) {
-    console.error('Knowledge base bootstrap failed:', error);
-  }
-})();
+      const items = [
+        ...contents.map((content) => ({ ...content, type: 'content' })),
+        ...brands.map((brand) => ({ ...brand, title: brand.name, type: 'brand' })),
+      ];
+
+      await buildKnowledgeBase(items);
+    } catch (error) {
+      console.error('Knowledge base bootstrap failed:', error);
+    }
+  })();
+} else {
+  console.log('RAG bootstrap on start disabled');
+}
 
 // Graceful shutdown
 const gracefulShutdown = (signal: string): void => {

@@ -25,11 +25,16 @@ export const config = {
   },
   vector: {
     chunkSize: process.env.VECTOR_CHUNK_SIZE!,
+    topK: process.env.VECTOR_TOP_K || '3',
+    minScore: process.env.VECTOR_MIN_SCORE || '0.75',
   },
   embedding: {
     model: process.env.EMBEDDING_MODEL!,
     dimensions: process.env.EMBEDDING_DIMENSIONS!,
     batchSize: process.env.EMBEDDING_BATCH_SIZE!,
+  },
+  admin: {
+    apiKey: process.env.ADMIN_API_KEY || '',
   },
   wechat: {
     appid: process.env.WECHAT_APPID!,
@@ -40,5 +45,8 @@ export const config = {
   qdrant: {
     url: process.env.QDRANT_URL!,
     apiKey: process.env.QDRANT_API_KEY!,
-  }
+  },
+  features: {
+    bootstrapOnStart: process.env.RAG_BOOTSTRAP === 'true',
+  },
 };

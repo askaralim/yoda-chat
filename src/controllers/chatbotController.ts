@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { chatbotAgent } from '../services/chatService.js';
 import { ChatbotRequest, ChatbotResponse, ConversationHistory } from '../types/chatbot.js';
 import { CustomError } from '../middleware/errorHandler.js';
-import { buildKnowledgeBase, deleteKnowledgeBase } from '../services/vectorService.js';
+import { buildKnowledgeBase, getKnowledgeBase, deleteKnowledgeBase } from '../services/vectorService.js';
 import { getAllContents, getContentById } from '../services/dataServices.js';
 
 export class ChatbotController {
@@ -47,6 +47,16 @@ export class ChatbotController {
     // } catch (error) {
     //   next(error);
     // }
+  }
+
+  async getKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const knowledge = await getKnowledgeBase(id as string);
+      res.status(200).json({ message: 'Knowledge retrieved successfully', knowledge });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /**

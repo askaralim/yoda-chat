@@ -6,11 +6,8 @@ import { findSimilarChunks } from "./vectorService.js";
 
 export async function answerUserQuery(query: string): Promise<string> {
   const retrievedChunks = await findSimilarChunks(query);
-  console.log('retrievedChunks: ' + JSON.stringify(retrievedChunks));
 
-  const relevantChunks = retrievedChunks.filter((chunk) => chunk.score >= 0.75);
-
-  const context = relevantChunks.length > 0 ? relevantChunks
+  const context = retrievedChunks.length > 0 ? retrievedChunks
     .map((chunk) => {
       const title = chunk.metadata.title ? `【${chunk.metadata.title}】\n` : "";
       return `${title}${chunk.content}`;
