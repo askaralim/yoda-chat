@@ -1,9 +1,9 @@
 services:
   # Yoda Chat Service (Chatbot API - runs on port 3000 internally)
   yoda-chat:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
     image: yoda-chat:latest
     container_name: yoda-chat
     restart: unless-stopped
