@@ -3,6 +3,7 @@ import { SystemMessage } from "langchain";
 
 import { openaiClient } from "../config/openai.js";
 import { findSimilarChunks } from "./vectorService.js";
+import { logger } from "../utils/logger.js";
 
 export async function answerUserQuery(query: string): Promise<string> {
   const retrievedChunks = await findSimilarChunks(query);
@@ -14,7 +15,11 @@ export async function answerUserQuery(query: string): Promise<string> {
     })
     .join("\n\n") : '';
 
-    console.log('context: ' + context);
+  logger.debug("RAG context prepared", {
+    query,
+    hasContext: retrievedChunks.length > 0,
+    chunkCount: retrievedChunks.length,
+  });
 
   const systemPrompt = new SystemMessage(
     "你是Taklip的AI助手，请用简洁、专业的中文回答用户的问题。不要输出任何其他内容，只输出回答。请遵循以下规则: 1. 基于上下文信息回答，不要编造不知道的内容 2. 如果上下文没有相关信息，请如实告知 3. 回答要专业、准确、友好 4. 适当使用表情符号让回答更生动 5. 如果用户问的是关于Taklip的内容，请优先使用Taklip的知识库回答，如果知识库没有相关信息，请如实告知",

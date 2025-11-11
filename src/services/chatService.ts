@@ -3,6 +3,7 @@
 import { answerUserQuery } from './llmService.js';
 import { ConversationMessage, ConversationHistory } from '../types/chatbot.js';
 import { redisClient, ensureRedisConnected } from './cacheService.js';
+import { logger } from '../utils/logger.js';
 
 export class ChatbotAgent {
   /**
@@ -43,9 +44,14 @@ export class ChatbotAgent {
         await redisClient.lTrim(`conversation:${userId}`, 0, 49);
       }
 
-      return aiResponse || 'Sorry, I am unable to answer that question.';
+      const responseText = aiResponse || 'Sorry, I am unable to answer that question.';
+      logger.debug("Chatbot agent processed message", {
+        userId,
+        messagePreview: message.slice(0, 80),
+      });
+      return responseText;
     } catch (error) {
-      console.error('Error in chatbot agent:', error);
+      logger.error('Error in chatbot agent', error);
       throw error;
     }
   }
@@ -58,6 +64,7 @@ export class ChatbotAgent {
   async getConversationHistory(userId: string): Promise<ConversationMessage[]> {
     await ensureRedisConnected();
     const history = await redisClient.lRange(`conversation:${userId}`, 0, -1) as string[];
+    logger.debug("Chatbot history retrieved from Redis", { userId, count: history.length });
     return history.map((msg: string) => JSON.parse(msg) as ConversationMessage);
   }
 
@@ -68,6 +75,7 @@ export class ChatbotAgent {
   async clearHistory(userId: string): Promise<void> {
     await ensureRedisConnected();
     await redisClient.del(`conversation:${userId}`);
+    logger.info("Chatbot history cleared", { userId });
   }
 }
 

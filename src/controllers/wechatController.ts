@@ -3,6 +3,7 @@ import { parseString } from 'xml2js';
 import { Request, Response } from 'express';
 import { chatbotAgent } from '../services/chatService.js';
 import { WeChatMessage, WeChatQueryParams } from '../types/wechat.js';
+import { logger } from '../utils/logger.js';
 
 export class WeChatController {
   /**
@@ -48,10 +49,12 @@ export class WeChatController {
         return;
       }
 
+      logger.info('WeChat message received', { payloadLength: xmlData.length });
+
       // Parse XML to JSON - using arrow function to preserve 'this' context
       parseString(xmlData, { explicitArray: false }, async (err: any, result: any) => {
         if (err) {
-          console.error('XML parsing error:', err);
+          logger.error('WeChat XML parsing error', err);
           res.status(400).send('Invalid XML format');
           return;
         }
@@ -70,6 +73,10 @@ export class WeChatController {
           try {
             // Get AI response from chatbot agent
             const answer = await chatbotAgent.processMessage(Content, FromUserName);
+            logger.info('WeChat text message processed', {
+              fromUser: FromUserName,
+              contentPreview: Content.slice(0, 80),
+            });
 
             // Format XML response
             const responseXml = WeChatController.formatTextResponse(
@@ -80,7 +87,7 @@ export class WeChatController {
 
             res.end(responseXml);
           } catch (error) {
-            console.error('Error processing message:', error);
+            logger.error('Error processing WeChat message', error);
             const errorMsg = '抱歉，我遇到了一个错误，无法回答你的问题。';
             const responseXml = WeChatController.formatTextResponse(
               ToUserName,
@@ -93,6 +100,7 @@ export class WeChatController {
           // Handle events
           const event = message.Event;
           const eventKey = message.EventKey;
+          logger.debug('WeChat event received', { event, eventKey, fromUser: FromUserName });
           if (event === 'subscribe') {
             // Handle subscribe event
             const responseXml = WeChatController.formatTextResponse(
@@ -120,7 +128,7 @@ export class WeChatController {
         }
       });
     } catch (error) {
-      console.error('Error handling WeChat message:', error);
+      logger.error('Error handling WeChat message', error);
       res.status(500).send('Internal server error');
     }
   }

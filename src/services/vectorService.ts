@@ -6,6 +6,7 @@ import { embeddingClient } from "../config/embed.js";
 import { getQdrantVectorStore, qdrantClient, qdrantCollectionName } from "../config/qdrant.js";
 import { config } from "../config/env.js";
 import { hashText } from "../utils/hash.js";
+import { logger } from "../utils/logger.js";
 
 export interface RetrievedChunk {
   content: string;
@@ -23,7 +24,17 @@ export async function findSimilarChunks(query: string, topK = Number.parseInt(co
   const filtered = results.filter(([, score]) => typeof score === "number" && score >= minScore);
 
   if (filtered.length === 0) {
-    console.log(`[RAG] No chunks met similarity threshold (${minScore}) for query: ${query}`);
+    logger.warn("No knowledge chunks met similarity threshold", {
+      queryPreview: query.slice(0, 80),
+      minScore,
+      requested: topK,
+    });
+  } else {
+    logger.debug("Knowledge chunks retrieved", {
+      queryPreview: query.slice(0, 80),
+      returned: filtered.length,
+      minScore,
+    });
   }
 
   return filtered.map(([doc, score]) => ({
@@ -48,7 +59,7 @@ type KnowledgeItem = Record<string, any> & {
 
 export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> {
   if (!Array.isArray(items) || items.length === 0) {
-    console.warn("No articles provided for knowledge base ingestion");
+    logger.warn("No items provided for knowledge base ingestion");
     return;
   }
 
@@ -80,7 +91,7 @@ export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> 
     });
 
     if (existing.points && existing.points.length > 0) {
-      console.log(`[SKIP] ${itemType} ${itemId} already ingested (content hash match)`);
+      logger.debug("Knowledge ingestion skipped (content hash match)", { itemType, itemId });
       continue;
     }
 
@@ -96,14 +107,20 @@ export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> 
     const docs = await chunkText(text, baseMetadata);
 
     if (docs.length === 0) {
+      logger.warn("Chunking produced no documents", { itemType, itemId });
       continue;
     }
 
     await vectorStore.addDocuments(docs);
-    console.log(`[OK] Uploaded ${itemType} ${baseMetadata.title || baseMetadata.articleId} to Qdrant`);
+    logger.info("Knowledge chunk uploaded", {
+      itemType,
+      itemId,
+      title: baseMetadata.title,
+      chunkCount: docs.length,
+    });
   }
 
-  console.log(`[OK] Ingestion finished. Processed ${items.length} items.`);
+  logger.info("Knowledge ingestion finished", { processed: items.length });
 }
 
 // export async function buildKnowledgeBase(articles: any[]) {
@@ -155,10 +172,11 @@ export async function getKnowledgeBase(id: string): Promise<string> {
     },
     with_payload: true,
   });
-console.log('existing: ' + JSON.stringify(existing));
   if (existing.points && existing.points.length > 0) {
+    logger.debug("Knowledge record found", { id });
     return existing.points[0]?.payload?.text as string || '';
   } else {
+    logger.debug("Knowledge record not found", { id });
     return '';
   }
 }
@@ -179,5 +197,5 @@ export async function deleteKnowledgeBase(articleId: string): Promise<void> {
     },
   });
 
-  console.log(`✅ Deleted chunks for article ${articleId}`);
+  logger.info("Knowledge chunks deleted", { articleId });
 }

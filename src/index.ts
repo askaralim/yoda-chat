@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { getAllContents, getAllBrands } from './services/dataServices.js';
 import { buildKnowledgeBase } from './services/vectorService.js';
 import { config } from './config/env.js';
+import { logger } from './utils/logger.js';
 
 dotenv.config();
 
@@ -84,11 +85,13 @@ app.use(errorHandler);
 
 // Start server
 const server = app.listen(PORT, () => {
-  console.log(`🚀 Yoda Chat server is running on port ${PORT}`);
-  console.log(`📡 WeChat endpoint: http://localhost:${PORT}${API_PREFIX}/wx`);
-  console.log(`📡 Chatbot endpoint: http://localhost:${PORT}${API_PREFIX}/chatbot`);
-  console.log(`🏥 Health check: http://localhost:${PORT}${API_PREFIX}/health`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info("🚀 Yoda Chat server started", {
+    port: PORT,
+    environment: process.env.NODE_ENV || 'development',
+    healthEndpoint: `${API_PREFIX}/health`,
+    wechatEndpoint: `${API_PREFIX}/wx`,
+    chatbotEndpoint: `${API_PREFIX}/chatbot`,
+  });
 });
 
 if (config.features.bootstrapOnStart) {
@@ -102,26 +105,30 @@ if (config.features.bootstrapOnStart) {
       ];
 
       await buildKnowledgeBase(items);
+      logger.info("Knowledge base bootstrap completed", {
+        contentCount: contents.length,
+        brandCount: brands.length,
+      });
     } catch (error) {
-      console.error('Knowledge base bootstrap failed:', error);
+      logger.error('Knowledge base bootstrap failed', error);
     }
   })();
 } else {
-  console.log('RAG bootstrap on start disabled');
+  logger.info('RAG bootstrap on start disabled');
 }
 
 // Graceful shutdown
 const gracefulShutdown = (signal: string): void => {
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  logger.warn(`${signal} received. Starting graceful shutdown...`);
   
   server.close(() => {
-    console.log('HTTP server closed');
+    logger.info('HTTP server closed');
     process.exit(0);
   });
 
   // Force close after 10 seconds
   setTimeout(() => {
-    console.error('Forced shutdown after timeout');
+    logger.error('Forced shutdown after timeout');
     process.exit(1);
   }, 10000);
 };
@@ -131,11 +138,11 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Handle uncaught errors
 process.on('uncaughtException', (error: Error) => {
-  console.error('Uncaught Exception:', error);
+  logger.error('Uncaught Exception', error);
   gracefulShutdown('uncaughtException');
 });
 
 process.on('unhandledRejection', (reason: unknown, promise: Promise<unknown>) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  logger.error('Unhandled Rejection', { reason, promise });
   gracefulShutdown('unhandledRejection');
 });

@@ -1,4 +1,6 @@
 import dotenv from "dotenv";
+import { logger } from "../utils/logger.js";
+
 dotenv.config();
 
 export const config = {
@@ -50,3 +52,12 @@ export const config = {
     bootstrapOnStart: process.env.RAG_BOOTSTRAP === 'true',
   },
 };
+
+logger.info("Configuration loaded", {
+  env: process.env.NODE_ENV || "development",
+  mysqlHost: config.mysql.host,
+  redisHost: config.redis.host,
+  redisPort: config.redis.port,
+  qdrantUrl: config.qdrant.url,
+  bootstrapOnStart: config.features.bootstrapOnStart,
+});
