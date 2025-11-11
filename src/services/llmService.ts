@@ -35,6 +35,7 @@ export async function answerUserQuery(query: string): Promise<string> {
   return response.content?.trim() || "";
 }
 
+
 // export async function answerUserQuery(query: string) {
 //   const vectorStore = await QdrantVectorStore.fromExistingCollection(embeddingClient, {
 //     url: config.qdrant.url,
