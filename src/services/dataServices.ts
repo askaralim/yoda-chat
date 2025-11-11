@@ -1,5 +1,5 @@
-import { db } from "../config/db";
-import { Content, Brand } from "../types/dbContent";
+import { db } from "../config/db.js";
+import { Content, Brand } from "../types/dbContent.js";
 
 export async function getAllArticles() {
   const [contents] = await db.query("SELECT id, title, description FROM content where deleted = 0");

@@ -1,4 +1,4 @@
-import { db } from "../config/db";
+import { db } from "../config/db.js";
 
 export async function getContentByKeyword(keyword: string) {
   const [rows] = await db.query(

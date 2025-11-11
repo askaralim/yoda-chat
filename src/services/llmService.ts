@@ -1,7 +1,7 @@
 // Handle full RAG logic (retrieve + LLM answer)
 import { SystemMessage } from "langchain";
 
-import { openaiClient } from "../config/openai";
+import { openaiClient } from "../config/openai.js";
 import { findSimilarChunks } from "./vectorService.js";
 
 export async function answerUserQuery(query: string): Promise<string> {
@@ -31,8 +31,28 @@ export async function answerUserQuery(query: string): Promise<string> {
   ];
 
   const response = await openaiClient.invoke(messages);
+  const output = response.content;
 
-  return response.content?.trim() || "";
+  if (typeof output === "string") {
+    return output.trim();
+  }
+
+  if (Array.isArray(output)) {
+    return output
+      .map((block) => {
+        if (typeof block === "string") {
+          return block;
+        }
+        if (block && typeof block === "object" && "text" in block && typeof block.text === "string") {
+          return block.text;
+        }
+        return "";
+      })
+      .join("")
+      .trim();
+  }
+
+  return "";
 }
 
 

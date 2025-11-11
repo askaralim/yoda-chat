@@ -1,7 +1,7 @@
 // Create embedding from text
 
-import { config } from "../config/env";
-import { openaiClient } from "../config/openai";
+import { config } from "../config/env.js";
+import { openaiClient } from "../config/openai.js";
 
 // export async function getEmbedding(text: string): Promise<number[]> {
 //   try {

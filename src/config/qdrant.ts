@@ -2,7 +2,7 @@ import { QdrantClient } from "@qdrant/js-client-rest";
 import { QdrantVectorStore } from "@langchain/qdrant";
 
 import { config } from "./env.js";
-import { embeddingClient } from "./embed";
+import { embeddingClient } from "./embed.js";
 
 const COLLECTION_NAME = process.env.QDRANT_COLLECTION || "taklip_knowledge";
 

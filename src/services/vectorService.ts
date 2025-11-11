@@ -2,7 +2,7 @@
 
 import { extractTextFromHTML } from "../utils/extract.js";
 import { chunkText } from "./chunkingService.js";
-import { embeddingClient } from "../config/embed";
+import { embeddingClient } from "../config/embed.js";
 import { getQdrantVectorStore, qdrantClient, qdrantCollectionName } from "../config/qdrant.js";
 import { config } from "../config/env.js";
 import { hashText } from "../utils/hash.js";
