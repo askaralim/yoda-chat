@@ -3,6 +3,7 @@ import express from "express";
 import { config } from "../config/env.js";
 import { buildKnowledgeBase } from "../services/vectorService.js";
 import { getAllContents, getAllBrands } from "../services/dataServices.js";
+import { logger } from "../utils/logger.js";
 
 export const adminRouter = express.Router();
 
@@ -23,6 +24,8 @@ adminRouter.use((req, res, next) => {
 
 adminRouter.post("/reindex", async (req, res, next) => {
   try {
+    logger.info("Reindexing requested with types: " + JSON.stringify(req.body));
+
     const rawTypes = req.body?.types;
     const normalizedTypes = Array.isArray(rawTypes)
       ? rawTypes
@@ -37,6 +40,7 @@ adminRouter.post("/reindex", async (req, res, next) => {
 
     if (allowContent) {
       const contents = await getAllContents();
+      logger.info("Content size: " + contents.length);
       items.push(
         ...contents.map((content) => ({
           ...content,
@@ -47,6 +51,7 @@ adminRouter.post("/reindex", async (req, res, next) => {
 
     if (allowBrand) {
       const brands = await getAllBrands();
+      logger.info("Brand size: " + brands.length);
       items.push(
         ...brands.map((brand) => ({
           ...brand,
@@ -61,6 +66,8 @@ adminRouter.post("/reindex", async (req, res, next) => {
     }
 
     await buildKnowledgeBase(items);
+
+    logger.info("Ingestion finished", { totalItems: items.length });
 
     return res.status(202).json({
       message: "Ingestion triggered",

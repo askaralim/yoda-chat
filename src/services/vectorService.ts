@@ -75,6 +75,8 @@ export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> 
       continue;
     }
 
+    logger.info("Processing item: " + (item.name || item.title));
+
     const contentHash = hashText(text);
     const itemType = item.type || "content";
     const itemId = String(item.id ?? "");
