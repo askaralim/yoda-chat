@@ -1,4 +1,5 @@
 import { db } from "../config/db.js";
+import { ChatConversation } from "../types/chatConversations.js";
 import { Content, Brand } from "../types/dbContent.js";
 
 export async function getAllArticles() {
@@ -30,3 +31,10 @@ export async function getAllBrands(): Promise<Brand[]> {
   return brands as unknown as Brand[];
 }
 
+export async function insertChatConversation(conversation: ChatConversation): Promise<ChatConversation> {
+  const contextIdsJson = JSON.stringify(conversation.contextIds || []);
+  const chunksJson = JSON.stringify(conversation.chunks || []);
+
+  const [result] = await db.query("INSERT INTO chat_conversations (user_id, question, answer, context_ids, chunks, latency) VALUES (?, ?, ?, ?, ?, ?)", [conversation.userId, conversation.question, conversation.answer, contextIdsJson, chunksJson, conversation.latency]);
+  return result as unknown as ChatConversation;
+}

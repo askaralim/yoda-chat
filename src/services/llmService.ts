@@ -4,8 +4,14 @@ import { SystemMessage } from "langchain";
 import { openaiClient } from "../config/openai.js";
 import { findSimilarChunks } from "./vectorService.js";
 import { logger } from "../utils/logger.js";
+import { insertChatConversation } from "./dataServices.js";
+import {ChatConversation, ChatConversationChunk} from "../types/chatConversations.js";
 
-export async function answerUserQuery(query: string): Promise<string> {
+export async function answerUserQuery(
+  userId: string,
+  query: string, 
+  history: { role: 'user' | 'assistant'; content: string }[]
+): Promise<string> {
   const retrievedChunks = await findSimilarChunks(query);
 
   const context = retrievedChunks.length > 0 ? retrievedChunks
@@ -19,24 +25,86 @@ export async function answerUserQuery(query: string): Promise<string> {
     query,
     hasContext: retrievedChunks.length > 0,
     chunkCount: retrievedChunks.length,
+    chunks: retrievedChunks.map((chunk) => ({
+      vectorId: chunk.id,
+      chunkIndex: chunk.metadata.chunkIndex,
+      chunkTitle: chunk.metadata.title,
+      articleId: chunk.metadata.articleId,
+      score: chunk.score,
+    })),
   });
 
   const systemPrompt = new SystemMessage(
     "你是Taklip的AI助手，请用简洁、专业的中文回答用户的问题。不要输出任何其他内容，只输出回答。请遵循以下规则: 1. 基于上下文信息回答，不要编造不知道的内容 2. 如果上下文没有相关信息，请如实告知 3. 回答要专业、准确、友好 4. 适当使用表情符号让回答更生动 5. 如果用户问的是关于Taklip的内容，请优先使用Taklip的知识库回答，如果知识库没有相关信息，请如实告知",
   );
 
+  const conversationMessages = history.map((m) => ({
+    role: m.role,
+    content: m.content,
+  }));
+
   const messages = [
     systemPrompt,
     {
       role: "user" as const,
       content: context
-        ? `以下是与用户问题相关的知识片段：\n${context}\n\n问题：${query}`
-        : `当前知识库中没有检索到相关内容。请直接回答以下问题（如果无法回答请说明原因）：${query}`,
+        ? `以下是与用户问题相关的知识片段：\n${context}\n\n当前对话历史：\n${JSON.stringify(
+          conversationMessages
+        )}\n\n问题：${query}`
+        : `当前知识库中没有检索到相关内容。当前对话历史：\n${JSON.stringify(
+          conversationMessages
+        )}\n\n问题：${query}`,
     },
   ];
 
+  logger.debug("LLM messages prepared", {
+    messages,
+  });
+
+  const startTime = Date.now();
+
   const response = await openaiClient.invoke(messages);
+
+  const latency = Date.now() - startTime;
+
+  logger.debug("LLM response", {
+    latency,
+    query,
+    conversationMessages,
+    response: response.content,
+  });
+
   const output = response.content;
+
+  // contextIds: filter chunk.metadata.articleId remove duplicated value
+  const contextIds = retrievedChunks.map((chunk) => chunk.metadata.articleId as string).filter((value, index, self) => self.indexOf(value) === index);
+
+  const conversation: ChatConversation = {
+    userId: userId,
+    question: query,
+    answer: output as string,
+    contextIds: contextIds,
+    chunks: retrievedChunks.map((chunk) => ({
+      chunkIndex: chunk.metadata.chunkIndex as number,
+      chunkTitle: chunk.metadata.title as string,
+      vectorId: chunk.id as string,
+      score: chunk.score,
+    })) as ChatConversationChunk[],
+    latency: latency,
+    createAt: new Date(),
+    updateAt: new Date(),
+  };
+
+  logger.debug("Chat conversation prepared", {
+    conversation,
+  });
+
+  const result = await insertChatConversation(conversation);
+
+  logger.debug("Chat conversation inserted", {
+    conversationId: result.id,
+    latency: latency,
+  });
 
   if (typeof output === "string") {
     return output.trim();

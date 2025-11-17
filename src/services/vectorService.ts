@@ -9,6 +9,7 @@ import { hashText } from "../utils/hash.js";
 import { logger } from "../utils/logger.js";
 
 export interface RetrievedChunk {
+  id: string;
   content: string;
   metadata: Record<string, unknown>;
   score: number;
@@ -24,7 +25,7 @@ export async function findSimilarChunks(query: string, topK = Number.parseInt(co
   const filtered = results.filter(([, score]) => typeof score === "number" && score >= minScore);
 
   if (filtered.length === 0) {
-    logger.warn("No knowledge chunks met similarity threshold", {
+    logger.warn("No knowledge chunks met similarity threshold: " + minScore.toString(), {
       queryPreview: query.slice(0, 80),
       minScore,
       requested: topK,
@@ -38,6 +39,7 @@ export async function findSimilarChunks(query: string, topK = Number.parseInt(co
   }
 
   return filtered.map(([doc, score]) => ({
+    id: doc.id ?? "",
     content: doc.pageContent,
     metadata: doc.metadata ?? {},
     score,

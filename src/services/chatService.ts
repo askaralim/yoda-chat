@@ -19,18 +19,21 @@ export class ChatbotAgent {
       // Get or create conversation history for this user
       const history = await redisClient.lRange(`conversation:${userId}`, 0, 9) as string[];
 
-      // Add user message to history
-      await redisClient.lPush(`conversation:${userId}`, JSON.stringify({
-        role: 'user',
-        content: message,
-        timestamp: new Date().toISOString()
-      }));
-
       // Build conversation context with history (last 10 messages for context)
       const messages = history.map((msg: string) => JSON.parse(msg) as ConversationMessage);
 
       // Get AI response from LLM service
-      const aiResponse = await answerUserQuery(message);
+      const aiResponse = await answerUserQuery(userId, message, messages.map((m) => ({
+        role: m.role,
+        content: m.message,
+      })));
+
+      // Add user message to history
+      await redisClient.lPush(`conversation:${userId}`, JSON.stringify({
+        role: 'user',
+        message: message,
+        timestamp: new Date().toISOString()
+      }));
 
       // Add AI response to history
       await redisClient.lPush(`conversation:${userId}`, JSON.stringify({
