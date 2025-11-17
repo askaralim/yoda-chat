@@ -21,7 +21,7 @@ export async function answerUserQuery(
     })
     .join("\n\n") : '';
 
-  logger.debug("RAG context prepared", {
+  logger.info("RAG context prepared", {
     query,
     hasContext: retrievedChunks.length > 0,
     chunkCount: retrievedChunks.length,
@@ -57,7 +57,7 @@ export async function answerUserQuery(
     },
   ];
 
-  logger.debug("LLM messages prepared", {
+  logger.info("LLM messages prepared", {
     messages,
   });
 
@@ -67,7 +67,7 @@ export async function answerUserQuery(
 
   const latency = Date.now() - startTime;
 
-  logger.debug("LLM response", {
+  logger.info("LLM response", {
     latency,
     query,
     conversationMessages,
