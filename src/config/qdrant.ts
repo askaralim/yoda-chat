@@ -1,10 +1,10 @@
-import { QdrantClient } from "@qdrant/js-client-rest";
-import { QdrantVectorStore } from "@langchain/qdrant";
+import { QdrantClient } from '@qdrant/js-client-rest';
+import { QdrantVectorStore } from '@langchain/qdrant';
 
-import { config } from "./env.js";
-import { embeddingClient } from "./embed.js";
+import { config } from './env.js';
+import { embeddingClient } from './embed.js';
 
-const COLLECTION_NAME = process.env.QDRANT_COLLECTION || "taklip_knowledge";
+const COLLECTION_NAME = process.env.QDRANT_COLLECTION || 'taklip_knowledge';
 
 const baseConfig: { url: string; apiKey?: string } = {
   url: config.qdrant.url,
@@ -20,8 +20,8 @@ async function ensureCollectionExists(): Promise<void> {
   if (!exists) {
     await qdrantClient.createCollection(COLLECTION_NAME, {
       vectors: {
-        size: Number.parseInt(config.embedding.dimensions ?? "1536", 10),
-        distance: "Cosine",
+        size: Number.parseInt(config.embedding.dimensions ?? '1536', 10),
+        distance: 'Cosine',
       },
     });
   }

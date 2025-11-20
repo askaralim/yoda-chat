@@ -10,7 +10,10 @@ chatbotRouter.post('/ask', chatbotController.ask.bind(chatbotController));
 chatbotRouter.post('/knowledge/:id', chatbotController.addKnowledge.bind(chatbotController));
 
 // Bulk import knowledge
-chatbotRouter.post('/knowledge/bulk', chatbotController.bulkImportKnowledge.bind(chatbotController));
+chatbotRouter.post(
+  '/knowledge/bulk',
+  chatbotController.bulkImportKnowledge.bind(chatbotController)
+);
 
 // Search knowledge
 chatbotRouter.get('/knowledge/search', chatbotController.searchKnowledge.bind(chatbotController));

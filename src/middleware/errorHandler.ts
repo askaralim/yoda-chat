@@ -33,7 +33,7 @@ export const errorHandler = (
     statusCode,
     path: req.path,
     method: req.method,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   // Send error response
@@ -43,18 +43,13 @@ export const errorHandler = (
       statusCode,
       ...(process.env.NODE_ENV === 'development' && {
         stack: err.stack,
-        details: err
-      })
-    }
+        details: err,
+      }),
+    },
   });
 };
 
-export const notFoundHandler = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
+export const notFoundHandler = (req: Request, res: Response, next: NextFunction): void => {
   const error = new CustomError(`Route ${req.originalUrl} not found`, 404);
   next(error);
 };
-

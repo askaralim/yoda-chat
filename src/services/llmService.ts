@@ -1,26 +1,30 @@
 // Handle full RAG logic (retrieve + LLM answer)
-import { SystemMessage } from "langchain";
-import { openaiClient } from "../config/openai.js";
-import { findSimilarChunks } from "./vectorService.js";
-import { logger } from "../utils/logger.js";
-import { insertChatConversation } from "./dataServices.js";
-import { ChatConversation, ChatConversationChunk } from "../types/chatConversations.js";
-import { ConversationMessage } from "../types/chatbot.js";
+import { SystemMessage } from 'langchain';
+import { openaiClient } from '../config/openai.js';
+import { findSimilarChunks } from './vectorService.js';
+import { logger } from '../utils/logger.js';
+import { insertChatConversation } from './dataServices.js';
+import { ChatConversation, ChatConversationChunk } from '../types/chatConversations.js';
+import { ConversationMessage } from '../types/chatbot.js';
 
-export async function answerUserQuery(userId: string, query: string, history: ConversationMessage[]
+export async function answerUserQuery(
+  userId: string,
+  query: string,
+  history: ConversationMessage[]
 ): Promise<string> {
   const retrievedChunks = await findSimilarChunks(query);
 
-  const context = retrievedChunks.length > 0
-    ? retrievedChunks
-      .map((chunk, index) => {
-        const title = chunk.metadata.title ? `【${chunk.metadata.title}】\n` : "";
-        return `[知识片段 ${index + 1}]\n${title}${chunk.content}`;
-      })
-      .join("\n\n")
-    : '';
+  const context =
+    retrievedChunks.length > 0
+      ? retrievedChunks
+          .map((chunk, index) => {
+            const title = chunk.metadata.title ? `【${chunk.metadata.title}】\n` : '';
+            return `[知识片段 ${index + 1}]\n${title}${chunk.content}`;
+          })
+          .join('\n\n')
+      : '';
 
-  logger.debug("RAG context prepared", {
+  logger.debug('RAG context prepared', {
     query,
     hasContext: retrievedChunks.length > 0,
     chunkCount: retrievedChunks.length,
@@ -35,7 +39,7 @@ export async function answerUserQuery(userId: string, query: string, history: Co
 
   const messages = await buildMessage(query, context, history);
 
-  logger.debug("LLM messages prepared", { messages: JSON.stringify(messages) });
+  logger.debug('LLM messages prepared', { messages: JSON.stringify(messages) });
 
   const startTime = Date.now();
 
@@ -43,7 +47,7 @@ export async function answerUserQuery(userId: string, query: string, history: Co
 
   const latency = Date.now() - startTime;
 
-  logger.info("LLM response", {
+  logger.info('LLM response', {
     latency,
     query,
     response: response.content,
@@ -52,7 +56,9 @@ export async function answerUserQuery(userId: string, query: string, history: Co
   const output = response.content;
 
   // contextIds: filter chunk.metadata.articleId remove duplicated value
-  const contextIds = retrievedChunks.map((chunk) => chunk.metadata.articleId as string).filter((value, index, self) => self.indexOf(value) === index);
+  const contextIds = retrievedChunks
+    .map((chunk) => chunk.metadata.articleId as string)
+    .filter((value, index, self) => self.indexOf(value) === index);
 
   const conversation: ChatConversation = {
     userId: userId,
@@ -70,44 +76,45 @@ export async function answerUserQuery(userId: string, query: string, history: Co
     updateAt: new Date(),
   };
 
-  logger.debug("Chat conversation prepared", {
+  logger.debug('Chat conversation prepared', {
     conversation,
   });
 
   const result = await insertChatConversation(conversation);
 
-  logger.debug("Chat conversation inserted", {
+  logger.debug('Chat conversation inserted', {
     conversationId: result.id,
     latency: latency,
   });
 
-  if (typeof output === "string") {
+  if (typeof output === 'string') {
     return output.trim();
   }
 
   if (Array.isArray(output)) {
     return output
       .map((block) => {
-        if (typeof block === "string") {
+        if (typeof block === 'string') {
           return block;
         }
-        if (block && typeof block === "object" && "text" in block && typeof block.text === "string") {
+        if (
+          block &&
+          typeof block === 'object' &&
+          'text' in block &&
+          typeof block.text === 'string'
+        ) {
           return block.text;
         }
-        return "";
+        return '';
       })
-      .join("")
+      .join('')
       .trim();
   }
 
-  return "";
+  return '';
 }
 
-async function buildMessage(
-  query: string,
-  context: string,
-  history: ConversationMessage[]
-) {
+async function buildMessage(query: string, context: string, history: ConversationMessage[]) {
   const enhancedContext = context || '当前知识库中没有检索到相关内容。';
 
   // const systemPrompt = new SystemMessage(
@@ -147,12 +154,11 @@ async function buildMessage(
   //   content: m.content,
   // }));
 
-  const conversationMessages = history.length > 0
-    ? formatConversationHistory(history)
-    : '📝 这是本次对话的第一个问题';
+  const conversationMessages =
+    history.length > 0 ? formatConversationHistory(history) : '📝 这是本次对话的第一个问题';
 
   const userMessage = {
-    role: "user" as const,
+    role: 'user' as const,
     content: `## 知识库信息
     ${enhancedContext}
 
@@ -163,22 +169,22 @@ async function buildMessage(
     ${query}
 
     ## 回答要求
-    请基于Taklip知识库信息，结合对话上下文，专业地回答用户问题。`
-  }
+    请基于Taklip知识库信息，结合对话上下文，专业地回答用户问题。`,
+  };
 
   return [systemPrompt, ...formatHistoryToMessages(history), userMessage];
   // return [systemPrompt, userMessage];
 }
 
 function formatConversationHistory(history: ConversationMessage[]): string {
-  return history.map(msg =>
-    `${msg.role === 'user' ? '👤 用户' : '🤖 助手'}: ${msg.message}`
-  ).join('\n');
+  return history
+    .map((msg) => `${msg.role === 'user' ? '👤 用户' : '🤖 助手'}: ${msg.message}`)
+    .join('\n');
 }
 
 function formatHistoryToMessages(history: ConversationMessage[]): any[] {
-  return history.map(msg => ({
+  return history.map((msg) => ({
     role: msg.role === 'user' ? 'user' : 'assistant',
-    content: msg.message
+    content: msg.message,
   }));
 }

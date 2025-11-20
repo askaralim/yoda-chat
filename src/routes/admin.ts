@@ -1,76 +1,79 @@
-import express from "express";
+import express from 'express';
 
-import { config } from "../config/env.js";
-import { buildKnowledgeBase } from "../services/vectorService.js";
-import { getAllContents, getAllBrands } from "../services/dataServices.js";
-import { logger } from "../utils/logger.js";
+import { config } from '../config/env.js';
+import { buildKnowledgeBase } from '../services/vectorService.js';
+import { getAllContents, getAllBrands } from '../services/dataServices.js';
+import { logger } from '../utils/logger.js';
 
 export const adminRouter = express.Router();
 
 adminRouter.use((req, res, next) => {
   if (!config.admin.apiKey) {
-    return res.status(503).json({ message: "Admin API key not configured" });
+    return res.status(503).json({ message: 'Admin API key not configured' });
   }
 
-  const headerKey = req.header("x-api-key");
-  const queryKey = typeof req.query.apiKey === "string" ? req.query.apiKey : undefined;
+  const headerKey = req.header('x-api-key');
+  const queryKey = typeof req.query.apiKey === 'string' ? req.query.apiKey : undefined;
 
   if (headerKey === config.admin.apiKey || queryKey === config.admin.apiKey) {
     return next();
   }
 
-  return res.status(401).json({ message: "Unauthorized" });
+  return res.status(401).json({ message: 'Unauthorized' });
 });
 
-adminRouter.post("/reindex", async (req, res, next) => {
+adminRouter.post('/reindex', async (req, res, next) => {
   try {
-    logger.info("Reindexing requested with types: " + JSON.stringify(req.body));
+    logger.info('Reindexing requested with types: ' + JSON.stringify(req.body));
 
     const rawTypes = req.body?.types;
     const normalizedTypes = Array.isArray(rawTypes)
       ? rawTypes
-      : typeof rawTypes === "string"
-        ? rawTypes.split(",").map((value: string) => value.trim()).filter(Boolean)
+      : typeof rawTypes === 'string'
+        ? rawTypes
+            .split(',')
+            .map((value: string) => value.trim())
+            .filter(Boolean)
         : undefined;
 
-    const allowContent = !normalizedTypes || normalizedTypes.includes("content");
-    const allowBrand = !normalizedTypes || normalizedTypes.includes("brand");
+    const allowContent = !normalizedTypes || normalizedTypes.includes('content');
+    const allowBrand = !normalizedTypes || normalizedTypes.includes('brand');
 
     const items = [];
 
     if (allowContent) {
       const contents = await getAllContents();
-      logger.info("Content size: " + contents.length);
+      logger.info('Content size: ' + contents.length);
       items.push(
         ...contents.map((content) => ({
           ...content,
-          type: "content",
-        })),
+          type: 'content',
+        }))
       );
     }
 
     if (allowBrand) {
       const brands = await getAllBrands();
-      logger.info("Brand size: " + brands.length);
+      logger.info('Brand size: ' + brands.length);
       items.push(
         ...brands.map((brand) => ({
           ...brand,
           title: brand.name,
-          type: "brand",
-        })),
+          type: 'brand',
+        }))
       );
     }
 
     if (items.length === 0) {
-      return res.status(400).json({ message: "No items selected for ingestion" });
+      return res.status(400).json({ message: 'No items selected for ingestion' });
     }
 
     await buildKnowledgeBase(items);
 
-    logger.info("Ingestion finished", { totalItems: items.length });
+    logger.info('Ingestion finished', { totalItems: items.length });
 
     return res.status(202).json({
-      message: "Ingestion triggered",
+      message: 'Ingestion triggered',
       totalItems: items.length,
       types: Array.from(new Set(items.map((item) => item.type))).sort(),
       normalizedTypes,
@@ -79,4 +82,3 @@ adminRouter.post("/reindex", async (req, res, next) => {
     return next(error);
   }
 });
-

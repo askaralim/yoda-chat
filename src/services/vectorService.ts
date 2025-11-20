@@ -1,12 +1,12 @@
 // Store/retrieve vectors from Qdrant
 
-import { extractTextFromHTML } from "../utils/extract.js";
-import { chunkText } from "./chunkingService.js";
-import { embeddingClient } from "../config/embed.js";
-import { getQdrantVectorStore, qdrantClient, qdrantCollectionName } from "../config/qdrant.js";
-import { config } from "../config/env.js";
-import { hashText } from "../utils/hash.js";
-import { logger } from "../utils/logger.js";
+import { extractTextFromHTML } from '../utils/extract.js';
+import { chunkText } from './chunkingService.js';
+import { embeddingClient } from '../config/embed.js';
+import { getQdrantVectorStore, qdrantClient, qdrantCollectionName } from '../config/qdrant.js';
+import { config } from '../config/env.js';
+import { hashText } from '../utils/hash.js';
+import { logger } from '../utils/logger.js';
 
 export interface RetrievedChunk {
   id: string;
@@ -15,28 +15,31 @@ export interface RetrievedChunk {
   score: number;
 }
 
-export async function findSimilarChunks(query: string, topK = Number.parseInt(config.vector.topK, 10) || 3): Promise<RetrievedChunk[]> {
+export async function findSimilarChunks(
+  query: string,
+  topK = Number.parseInt(config.vector.topK, 10) || 3
+): Promise<RetrievedChunk[]> {
   const vectorStore = await getQdrantVectorStore();
   const vector = await embeddingClient.embedQuery(query);
 
   const results = await vectorStore.similaritySearchVectorWithScore(vector, topK);
 
-  logger.debug("Similar chunks retrieved", {
+  logger.info('Similar chunks retrieved', {
     results: JSON.stringify(results),
   });
 
-  const minScore = Number.parseFloat(config.vector.minScore || "0");
+  const minScore = Number.parseFloat(config.vector.minScore || '0');
 
-  const filtered = results.filter(([, score]) => typeof score === "number" && score >= minScore);
+  const filtered = results.filter(([, score]) => typeof score === 'number' && score >= minScore);
 
   if (filtered.length === 0) {
-    logger.warn("No knowledge chunks met similarity threshold: " + minScore.toString(), {
+    logger.warn('No knowledge chunks met similarity threshold: ' + minScore.toString(), {
       queryPreview: query.slice(0, 80),
       minScore,
       requested: topK,
     });
   } else {
-    logger.debug("Knowledge chunks retrieved", {
+    logger.debug('Knowledge chunks retrieved', {
       queryPreview: query.slice(0, 80),
       returned: filtered.length,
       minScore,
@@ -44,7 +47,7 @@ export async function findSimilarChunks(query: string, topK = Number.parseInt(co
   }
 
   return filtered.map(([doc, score]) => ({
-    id: doc.id ?? "",
+    id: doc.id ?? '',
     content: doc.pageContent,
     metadata: doc.metadata ?? {},
     score,
@@ -53,7 +56,7 @@ export async function findSimilarChunks(query: string, topK = Number.parseInt(co
 
 export async function getContextFromChunks(query: string, topK = 3): Promise<string> {
   const chunks = await findSimilarChunks(query, topK);
-  return chunks.map((chunk) => chunk.content).join("\n\n");
+  return chunks.map((chunk) => chunk.content).join('\n\n');
 }
 
 type KnowledgeItem = Record<string, any> & {
@@ -61,12 +64,12 @@ type KnowledgeItem = Record<string, any> & {
   title?: string;
   name?: string;
   description?: string;
-  type?: "content" | "brand" | string;
+  type?: 'content' | 'brand' | string;
 };
 
 export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> {
   if (!Array.isArray(items) || items.length === 0) {
-    logger.warn("No items provided for knowledge base ingestion");
+    logger.warn('No items provided for knowledge base ingestion');
     return;
   }
 
@@ -82,33 +85,33 @@ export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> 
       continue;
     }
 
-    logger.info("Processing item: " + (item.name || item.title));
+    logger.info('Processing item: ' + (item.name || item.title));
 
     const contentHash = hashText(text);
-    const itemType = item.type || "content";
-    const itemId = String(item.id ?? "");
+    const itemType = item.type || 'content';
+    const itemId = String(item.id ?? '');
 
     const existing = await qdrantClient.scroll(qdrantCollectionName, {
       limit: 1,
       filter: {
         must: [
-          { key: "metadata.articleId", match: { value: itemId } },
-          { key: "metadata.contentHash", match: { value: contentHash } },
+          { key: 'metadata.articleId', match: { value: itemId } },
+          { key: 'metadata.contentHash', match: { value: contentHash } },
         ],
       },
       with_payload: true,
     });
 
     if (existing.points && existing.points.length > 0) {
-      logger.debug("Knowledge ingestion skipped (content hash match)", { itemType, itemId });
+      logger.debug('Knowledge ingestion skipped (content hash match)', { itemType, itemId });
       continue;
     }
 
     const baseMetadata = {
       articleId: itemId,
-      title: item.title || item.name || "",
+      title: item.title || item.name || '',
       contentType: itemType,
-      source: item.source || "mysql",
+      source: item.source || 'mysql',
       contentHash,
       ingestedAt: new Date().toISOString(),
     } satisfies Record<string, any>;
@@ -116,12 +119,12 @@ export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> 
     const docs = await chunkText(text, baseMetadata);
 
     if (docs.length === 0) {
-      logger.warn("Chunking produced no documents", { itemType, itemId });
+      logger.warn('Chunking produced no documents', { itemType, itemId });
       continue;
     }
 
     await vectorStore.addDocuments(docs);
-    logger.info("Knowledge chunk uploaded", {
+    logger.info('Knowledge chunk uploaded', {
       itemType,
       itemId,
       title: baseMetadata.title,
@@ -129,7 +132,7 @@ export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> 
     });
   }
 
-  logger.info("Knowledge ingestion finished", { processed: items.length });
+  logger.info('Knowledge ingestion finished', { processed: items.length });
 }
 
 // export async function buildKnowledgeBase(articles: any[]) {
@@ -175,24 +178,22 @@ export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> 
 export async function getKnowledgeBase(id: string): Promise<string> {
   const existing = await qdrantClient.scroll(qdrantCollectionName, {
     filter: {
-      must: [
-        { key: "metadata.id", match: { value: id } }
-      ],
+      must: [{ key: 'metadata.id', match: { value: id } }],
     },
     with_payload: true,
   });
   if (existing.points && existing.points.length > 0) {
-    logger.debug("Knowledge record found", { id });
-    return existing.points[0]?.payload?.text as string || '';
+    logger.debug('Knowledge record found', { id });
+    return (existing.points[0]?.payload?.text as string) || '';
   } else {
-    logger.debug("Knowledge record not found", { id });
+    logger.debug('Knowledge record not found', { id });
     return '';
   }
 }
 
 export async function deleteKnowledgeBase(articleId: string): Promise<void> {
   if (!articleId) {
-    throw new Error("articleId is required to delete knowledge base entries");
+    throw new Error('articleId is required to delete knowledge base entries');
   }
 
   const vectorStore = await getQdrantVectorStore();
@@ -200,11 +201,12 @@ export async function deleteKnowledgeBase(articleId: string): Promise<void> {
     filter: {
       must: [
         {
-          key: "metadata.id", match: { value: articleId },
+          key: 'metadata.id',
+          match: { value: articleId },
         },
       ],
     },
   });
 
-  logger.info("Knowledge chunks deleted", { articleId });
+  logger.info('Knowledge chunks deleted', { articleId });
 }

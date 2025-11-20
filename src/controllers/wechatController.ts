@@ -23,7 +23,7 @@ export class WeChatController {
     // Sort the parameters
     const tmpArr = [token, timestamp, nonce].sort();
     const tmpStr = tmpArr.join('');
-    
+
     // Create SHA1 hash
     const hash = crypto.createHash('sha1');
     hash.update(tmpStr);
@@ -62,9 +62,7 @@ export class WeChatController {
 
         logger.info('WeChat message received', { message });
 
-        const { 
-          ToUserName, FromUserName, MsgType, Content, MsgId
-        } = message;
+        const { ToUserName, FromUserName, MsgType, Content, MsgId } = message;
 
         // Echo the message back to WeChat server immediately (required by WeChat)
         res.writeHead(200, { 'Content-Type': 'application/xml' });
@@ -74,11 +72,11 @@ export class WeChatController {
           await ensureRedisConnected();
           const cacheKey = `wechat:msg:${MsgId}`;
           const cachedResponse = await redisClient.get(cacheKey);
-          
+
           if (cachedResponse) {
-            logger.info('WeChat duplicate message detected, returning cached response', { 
+            logger.info('WeChat duplicate message detected, returning cached response', {
               MsgId,
-              fromUser: FromUserName 
+              fromUser: FromUserName,
             });
             res.end(cachedResponse);
             return;
@@ -119,14 +117,14 @@ export class WeChatController {
               FromUserName,
               errorMsg
             );
-            
+
             // Cache error response as well to prevent retry processing
             if (MsgId) {
               await ensureRedisConnected();
               const cacheKey = `wechat:msg:${MsgId}`;
               await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
             }
-            
+
             res.end(responseXml);
           }
         } else if (MsgType === 'event') {
@@ -134,7 +132,7 @@ export class WeChatController {
           const event = message.Event;
           const eventKey = message.EventKey;
           logger.debug('WeChat event received', { event, eventKey, fromUser: FromUserName });
-          
+
           let responseXml: string;
           if (event === 'subscribe') {
             // Handle subscribe event
@@ -150,14 +148,14 @@ export class WeChatController {
               event || ''
             );
           }
-          
+
           // Cache event response to prevent duplicate processing
           if (MsgId) {
             await ensureRedisConnected();
             const cacheKey = `wechat:msg:${MsgId}`;
             await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
           }
-          
+
           res.end(responseXml);
         } else {
           // Handle non-text messages or events
@@ -167,14 +165,14 @@ export class WeChatController {
             FromUserName,
             defaultMsg
           );
-          
+
           // Cache default response to prevent duplicate processing
           if (MsgId) {
             await ensureRedisConnected();
             const cacheKey = `wechat:msg:${MsgId}`;
             await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
           }
-          
+
           res.end(responseXml);
         }
       });

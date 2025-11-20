@@ -26,10 +26,13 @@ app.use(corsConfig);
 app.use(`${API_PREFIX}`, rateLimiter(100, 60000)); // 100 requests per minute
 
 // Middleware for WeChat (raw XML text) - accept both application/xml and text/xml
-app.use(`${API_PREFIX}/wx`, express.text({ 
-  type: ['application/xml', 'text/xml', 'text/plain'], 
-  limit: '1mb' 
-}));
+app.use(
+  `${API_PREFIX}/wx`,
+  express.text({
+    type: ['application/xml', 'text/xml', 'text/plain'],
+    limit: '1mb',
+  })
+);
 
 // Middleware for other routes
 app.use(express.json({ limit: '10mb' }));
@@ -52,8 +55,8 @@ app.get(`${API_PREFIX}/health`, (req: Request, res: Response) => {
     checks: {
       api: 'ok',
       wechat: process.env.WECHAT_TOKEN ? 'configured' : 'not_configured',
-      openai: process.env.OPENAI_API_KEY ? 'configured' : 'not_configured'
-    }
+      openai: process.env.OPENAI_API_KEY ? 'configured' : 'not_configured',
+    },
   };
   res.status(200).json(healthData);
 });
@@ -72,8 +75,8 @@ app.get('/', (req: Request, res: Response) => {
     endpoints: {
       health: `${API_PREFIX}/health`,
       wechat: `${API_PREFIX}/wx`,
-      chatbot: `${API_PREFIX}/chatbot`
-    }
+      chatbot: `${API_PREFIX}/chatbot`,
+    },
   });
 });
 
@@ -85,7 +88,7 @@ app.use(errorHandler);
 
 // Start server
 const server = app.listen(PORT, () => {
-  logger.info("🚀 Yoda Chat server started", {
+  logger.info('🚀 Yoda Chat server started', {
     port: PORT,
     environment: process.env.NODE_ENV || 'development',
     healthEndpoint: `${API_PREFIX}/health`,
@@ -105,7 +108,7 @@ if (config.features.bootstrapOnStart) {
       ];
 
       await buildKnowledgeBase(items);
-      logger.info("Knowledge base bootstrap completed", {
+      logger.info('Knowledge base bootstrap completed', {
         contentCount: contents.length,
         brandCount: brands.length,
       });
@@ -120,7 +123,7 @@ if (config.features.bootstrapOnStart) {
 // Graceful shutdown
 const gracefulShutdown = (signal: string): void => {
   logger.warn(`${signal} received. Starting graceful shutdown...`);
-  
+
   server.close(() => {
     logger.info('HTTP server closed');
     process.exit(0);

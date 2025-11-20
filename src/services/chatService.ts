@@ -4,7 +4,7 @@ import { answerUserQuery } from './llmService.js';
 import { ConversationMessage, ConversationHistory } from '../types/chatbot.js';
 import { redisClient, ensureRedisConnected } from './cacheService.js';
 import { logger } from '../utils/logger.js';
-import {config} from '../config/env.js';
+import { config } from '../config/env.js';
 
 export class ChatbotAgent {
   /**
@@ -22,7 +22,7 @@ export class ChatbotAgent {
       // Get last 10 messages for context
       // LPUSH adds to left (index 0), so newest is at 0, oldest at end
       // LRANGE 0 9 gets first 10 (newest), then reverse to get chronological order (oldest first)
-      const historyStrings = await redisClient.lRange(key, 0, 9) as string[];
+      const historyStrings = (await redisClient.lRange(key, 0, 9)) as string[];
       const historyMessages: ConversationMessage[] = historyStrings
         .map((msg) => JSON.parse(msg) as ConversationMessage)
         .reverse(); // Reverse to get chronological order (oldest first) for LLM context
@@ -36,7 +36,7 @@ export class ChatbotAgent {
         JSON.stringify({
           role: 'user',
           message: message,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         })
       );
 
@@ -46,7 +46,7 @@ export class ChatbotAgent {
           role: 'assistant',
           message: aiResponse,
           timestamp: new Date().toISOString(),
-          confidence: this.calculateConfidence(aiResponse)
+          confidence: this.calculateConfidence(aiResponse),
         })
       );
 
@@ -54,13 +54,10 @@ export class ChatbotAgent {
       await redisClient.lTrim(key, 0, 49);
 
       // Set/refresh expiration
-      await redisClient.expire(
-        key,
-        Number(config.conversation.conversationTtlSeconds)
-      );
+      await redisClient.expire(key, Number(config.conversation.conversationTtlSeconds));
 
       const responseText = aiResponse || 'Sorry, I am unable to answer that question.';
-      logger.debug("Chatbot agent processed message", {
+      logger.debug('Chatbot agent processed message', {
         userId,
         messagePreview: message.slice(0, 80),
       });
@@ -89,28 +86,23 @@ export class ChatbotAgent {
   async getConversationHistory(userId: string): Promise<ConversationMessage[]> {
     await ensureRedisConnected();
     const key = `conversation:${userId}`;
-    
+
     // Get all messages from list (LRANGE 0 -1 gets all)
-    const historyStrings = await redisClient.lRange(key, 0, -1) as string[];
-    
+    const historyStrings = (await redisClient.lRange(key, 0, -1)) as string[];
+
     if (historyStrings.length === 0) {
-      logger.debug("No conversation history found", { userId });
+      logger.debug('No conversation history found', { userId });
       return [];
     }
 
     // Refresh expiration when history is accessed (user is active)
-    await redisClient.expire(
-      key,
-      Number(config.conversation.conversationTtlSeconds)
-    );
+    await redisClient.expire(key, Number(config.conversation.conversationTtlSeconds));
 
     // Parse JSON strings to ConversationMessage objects
     // Note: List stores in reverse order (newest first), so reverse to get chronological order
-    const history = historyStrings
-      .map((msg) => JSON.parse(msg) as ConversationMessage)
-      .reverse(); // Reverse to get chronological order (oldest first)
+    const history = historyStrings.map((msg) => JSON.parse(msg) as ConversationMessage).reverse(); // Reverse to get chronological order (oldest first)
 
-    logger.debug("Chatbot history retrieved from Redis", { userId, count: history.length });
+    logger.debug('Chatbot history retrieved from Redis', { userId, count: history.length });
     return history;
   }
 
@@ -121,7 +113,7 @@ export class ChatbotAgent {
   async clearHistory(userId: string): Promise<void> {
     await ensureRedisConnected();
     await redisClient.del(`conversation:${userId}`);
-    logger.info("Chatbot history cleared", { userId });
+    logger.info('Chatbot history cleared', { userId });
   }
 }
 

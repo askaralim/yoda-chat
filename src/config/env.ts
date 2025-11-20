@@ -1,5 +1,5 @@
-import dotenv from "dotenv";
-import { logger } from "../utils/logger.js";
+import dotenv from 'dotenv';
+import { logger } from '../utils/logger.js';
 
 dotenv.config();
 
@@ -53,11 +53,11 @@ export const config = {
   },
   conversation: {
     conversationTtlSeconds: process.env.CONVERSATION_TTL_SECONDS || '604800', // 7 days
-  }
+  },
 };
 
-logger.info("Configuration loaded", {
-  env: process.env.NODE_ENV || "development",
+logger.info('Configuration loaded', {
+  env: process.env.NODE_ENV || 'development',
   mysqlHost: config.mysql.host,
   redisHost: config.redis.host,
   redisPort: config.redis.port,

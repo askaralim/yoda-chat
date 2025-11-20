@@ -2,7 +2,11 @@ import { Request, Response, NextFunction } from 'express';
 import { chatbotAgent } from '../services/chatService.js';
 import { ChatbotRequest, ChatbotResponse, ConversationHistory } from '../types/chatbot.js';
 import { CustomError } from '../middleware/errorHandler.js';
-import { buildKnowledgeBase, getKnowledgeBase, deleteKnowledgeBase } from '../services/vectorService.js';
+import {
+  buildKnowledgeBase,
+  getKnowledgeBase,
+  deleteKnowledgeBase,
+} from '../services/vectorService.js';
 import { getAllContents, getContentById } from '../services/dataServices.js';
 import { logger } from '../utils/logger.js';
 
@@ -13,16 +17,16 @@ export class ChatbotController {
   async addKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      logger.info("Knowledge add requested", { id });
+      logger.info('Knowledge add requested', { id });
       const content = await getContentById(id as string);
       if (!content) {
         throw new CustomError('Content not found', 404);
       }
       await buildKnowledgeBase([content]);
-      logger.info("Knowledge added", { id });
+      logger.info('Knowledge added', { id });
       res.status(200).json({ message: 'Knowledge added successfully' });
     } catch (error) {
-      logger.error("Knowledge add failed", error);
+      logger.error('Knowledge add failed', error);
       next(error);
     }
   }
@@ -32,13 +36,13 @@ export class ChatbotController {
    */
   async bulkImportKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      logger.info("Knowledge bulk import requested");
+      logger.info('Knowledge bulk import requested');
       const contents = await getAllContents();
       await buildKnowledgeBase(contents);
-      logger.info("Knowledge bulk import completed", { count: contents.length });
+      logger.info('Knowledge bulk import completed', { count: contents.length });
       res.status(200).json({ message: 'Knowledge bulk imported successfully' });
     } catch (error) {
-      logger.error("Knowledge bulk import failed", error);
+      logger.error('Knowledge bulk import failed', error);
       next(error);
     }
   }
@@ -59,11 +63,11 @@ export class ChatbotController {
   async getKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      logger.debug("Knowledge retrieve requested", { id });
+      logger.debug('Knowledge retrieve requested', { id });
       const knowledge = await getKnowledgeBase(id as string);
       res.status(200).json({ message: 'Knowledge retrieved successfully', knowledge });
     } catch (error) {
-      logger.error("Knowledge retrieve failed", error);
+      logger.error('Knowledge retrieve failed', error);
       next(error);
     }
   }
@@ -74,16 +78,16 @@ export class ChatbotController {
   async updateKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      logger.info("Knowledge update requested", { id });
+      logger.info('Knowledge update requested', { id });
       const content = await getContentById(id as string);
       if (!content) {
         throw new CustomError('Content not found', 404);
       }
       await buildKnowledgeBase([content]);
-      logger.info("Knowledge updated", { id });
+      logger.info('Knowledge updated', { id });
       res.status(200).json({ message: 'Knowledge updated successfully' });
     } catch (error) {
-      logger.error("Knowledge update failed", error);
+      logger.error('Knowledge update failed', error);
       next(error);
     }
   }
@@ -94,11 +98,11 @@ export class ChatbotController {
   async deleteKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      logger.info("Knowledge delete requested", { id });
+      logger.info('Knowledge delete requested', { id });
       await deleteKnowledgeBase(id as string);
-      res.status(200).json({ message: 'Knowledge deleted successfully'});
+      res.status(200).json({ message: 'Knowledge deleted successfully' });
     } catch (error) {
-      logger.error("Knowledge delete failed", error);
+      logger.error('Knowledge delete failed', error);
       next(error);
     }
   }
@@ -119,7 +123,7 @@ export class ChatbotController {
       }
 
       const userIdOrDefault = userId || 'anonymous';
-      logger.info("Chat question received", {
+      logger.info('Chat question received', {
         userId: userIdOrDefault,
         length: question.length,
         preview: question.slice(0, 80),
@@ -134,16 +138,16 @@ export class ChatbotController {
         question: question.trim(),
         answer,
         userId: userIdOrDefault,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       };
 
       res.status(200).json(response);
-      logger.info("Chat response delivered", {
+      logger.info('Chat response delivered', {
         userId: userIdOrDefault,
         answerPreview: answer.slice(0, 80),
       });
     } catch (error) {
-      logger.error("Chat ask handler failed", error);
+      logger.error('Chat ask handler failed', error);
       next(error);
     }
   }
@@ -164,13 +168,13 @@ export class ChatbotController {
       const response: ConversationHistory = {
         userId: userId.trim(),
         history,
-        count: history.length
+        count: history.length,
       };
 
       res.status(200).json(response);
-      logger.debug("Chat history returned", { userId: userId.trim(), count: history.length });
+      logger.debug('Chat history returned', { userId: userId.trim(), count: history.length });
     } catch (error) {
-      logger.error("Chat history handler failed", error);
+      logger.error('Chat history handler failed', error);
       next(error);
     }
   }

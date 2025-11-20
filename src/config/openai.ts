@@ -12,7 +12,6 @@ import { ChatOpenAI } from '@langchain/openai';
 //   timeout: 30000 // 30 seconds timeout
 // });
 
-
 export const openaiClient = new ChatOpenAI({
   model: config.gpt.model,
   temperature: parseFloat(config.gpt.temperature),
@@ -21,8 +20,8 @@ export const openaiClient = new ChatOpenAI({
   configuration: {
     baseURL: config.openai.baseURL,
     defaultHeaders: {
-      'Authorization': `Bearer ${config.openai.apiKey}`,
-      'Content-Type': 'application/json'
+      Authorization: `Bearer ${config.openai.apiKey}`,
+      'Content-Type': 'application/json',
     },
     timeout: 30000, // 30 seconds timeout
   },
