@@ -4,6 +4,7 @@ import { Request, Response } from 'express';
 import { chatbotAgent } from '../services/chatService.js';
 import { WeChatMessage, WeChatQueryParams } from '../types/wechat.js';
 import { logger } from '../utils/logger.js';
+import { redisClient, ensureRedisConnected } from '../services/cacheService.js';
 
 export class WeChatController {
   /**
@@ -62,12 +63,27 @@ export class WeChatController {
         logger.info('WeChat message received', { message });
 
         const { 
-          ToUserName, FromUserName, MsgType, Content
-          // , CreateTime, MsgId, MsgDataId, Idx 
+          ToUserName, FromUserName, MsgType, Content, MsgId
         } = message;
 
         // Echo the message back to WeChat server immediately (required by WeChat)
         res.writeHead(200, { 'Content-Type': 'application/xml' });
+
+        // Check for duplicate message (WeChat retries if no response within 5 seconds)
+        if (MsgId) {
+          await ensureRedisConnected();
+          const cacheKey = `wechat:msg:${MsgId}`;
+          const cachedResponse = await redisClient.get(cacheKey);
+          
+          if (cachedResponse) {
+            logger.info('WeChat duplicate message detected, returning cached response', { 
+              MsgId,
+              fromUser: FromUserName 
+            });
+            res.end(cachedResponse);
+            return;
+          }
+        }
 
         // Only process text messages
         if (MsgType === 'text' && Content) {
@@ -77,6 +93,7 @@ export class WeChatController {
             logger.info('WeChat text message processed', {
               fromUser: FromUserName,
               contentPreview: Content.slice(0, 80),
+              MsgId,
             });
 
             // Format XML response
@@ -85,6 +102,13 @@ export class WeChatController {
               FromUserName,
               answer
             );
+
+            // Cache the response by MsgId to handle WeChat retries (TTL: 24 hours)
+            if (MsgId) {
+              await ensureRedisConnected();
+              const cacheKey = `wechat:msg:${MsgId}`;
+              await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
+            }
 
             res.end(responseXml);
           } catch (error) {
@@ -95,6 +119,14 @@ export class WeChatController {
               FromUserName,
               errorMsg
             );
+            
+            // Cache error response as well to prevent retry processing
+            if (MsgId) {
+              await ensureRedisConnected();
+              const cacheKey = `wechat:msg:${MsgId}`;
+              await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
+            }
+            
             res.end(responseXml);
           }
         } else if (MsgType === 'event') {
@@ -102,20 +134,30 @@ export class WeChatController {
           const event = message.Event;
           const eventKey = message.EventKey;
           logger.debug('WeChat event received', { event, eventKey, fromUser: FromUserName });
+          
+          let responseXml: string;
           if (event === 'subscribe') {
             // Handle subscribe event
-            const responseXml = WeChatController.formatTextResponse(
+            responseXml = WeChatController.formatTextResponse(
               ToUserName,
               FromUserName,
               'hello，欢迎关注「taklip太离谱」！\n如果有想了解的问题，可以直接在输入框发送信息，如果小助手无法回答就会去联系管事儿的。\n\n「taklip太离谱」还有个交流群，用于分享交流，有意加入可以添加微信：asikar\n Cheers!!'
             );
-            res.end(responseXml);
+          } else {
+            responseXml = WeChatController.formatTextResponse(
+              ToUserName,
+              FromUserName,
+              event || ''
+            );
           }
-          const responseXml = WeChatController.formatTextResponse(
-            ToUserName,
-            FromUserName,
-            event || ''
-          );
+          
+          // Cache event response to prevent duplicate processing
+          if (MsgId) {
+            await ensureRedisConnected();
+            const cacheKey = `wechat:msg:${MsgId}`;
+            await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
+          }
+          
           res.end(responseXml);
         } else {
           // Handle non-text messages or events
@@ -125,6 +167,14 @@ export class WeChatController {
             FromUserName,
             defaultMsg
           );
+          
+          // Cache default response to prevent duplicate processing
+          if (MsgId) {
+            await ensureRedisConnected();
+            const cacheKey = `wechat:msg:${MsgId}`;
+            await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
+          }
+          
           res.end(responseXml);
         }
       });

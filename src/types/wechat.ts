@@ -6,6 +6,7 @@ export interface WeChatMessage {
   Content?: string;
   Event?: string;
   EventKey?: string;
+  MsgId?: string;
 }
 
 export interface WeChatTextResponse {
