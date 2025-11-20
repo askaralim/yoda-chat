@@ -51,6 +51,9 @@ export const config = {
   features: {
     bootstrapOnStart: process.env.RAG_BOOTSTRAP === 'true',
   },
+  conversation: {
+    conversationTtlSeconds: process.env.CONVERSATION_TTL_SECONDS || '604800', // 7 days
+  }
 };
 
 logger.info("Configuration loaded", {

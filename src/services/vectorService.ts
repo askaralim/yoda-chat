@@ -20,6 +20,11 @@ export async function findSimilarChunks(query: string, topK = Number.parseInt(co
   const vector = await embeddingClient.embedQuery(query);
 
   const results = await vectorStore.similaritySearchVectorWithScore(vector, topK);
+
+  logger.debug("Similar chunks retrieved", {
+    results: JSON.stringify(results),
+  });
+
   const minScore = Number.parseFloat(config.vector.minScore || "0");
 
   const filtered = results.filter(([, score]) => typeof score === "number" && score >= minScore);

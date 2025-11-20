@@ -49,8 +49,6 @@ export class WeChatController {
         return;
       }
 
-      logger.info('WeChat message received', { payloadLength: xmlData.length });
-
       // Parse XML to JSON - using arrow function to preserve 'this' context
       parseString(xmlData, { explicitArray: false }, async (err: any, result: any) => {
         if (err) {
@@ -60,6 +58,9 @@ export class WeChatController {
         }
 
         const message = result.xml as WeChatMessage;
+
+        logger.info('WeChat message received', { message });
+
         const { 
           ToUserName, FromUserName, MsgType, Content
           // , CreateTime, MsgId, MsgDataId, Idx 

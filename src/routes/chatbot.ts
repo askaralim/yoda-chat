@@ -13,7 +13,7 @@ chatbotRouter.post('/knowledge/:id', chatbotController.addKnowledge.bind(chatbot
 chatbotRouter.post('/knowledge/bulk', chatbotController.bulkImportKnowledge.bind(chatbotController));
 
 // Search knowledge
-chatbotRouter.get('/knowledge/search?q=query', chatbotController.searchKnowledge.bind(chatbotController));
+chatbotRouter.get('/knowledge/search', chatbotController.searchKnowledge.bind(chatbotController));
 
 // Update knowledge
 chatbotRouter.get('/knowledge/:id', chatbotController.getKnowledge.bind(chatbotController));

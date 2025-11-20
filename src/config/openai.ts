@@ -15,7 +15,8 @@ import { ChatOpenAI } from '@langchain/openai';
 
 export const openaiClient = new ChatOpenAI({
   model: config.gpt.model,
-  // temperature: parseFloat(config.gpt.temperature),
+  temperature: parseFloat(config.gpt.temperature),
+  maxTokens: parseInt(config.gpt.maxTokens),
   openAIApiKey: config.openai.apiKey,
   configuration: {
     baseURL: config.openai.baseURL,

@@ -1,6 +1,7 @@
 import { db } from "../config/db.js";
 import { ChatConversation } from "../types/chatConversations.js";
 import { Content, Brand } from "../types/dbContent.js";
+import { logger } from "../utils/logger.js";
 
 export async function getAllArticles() {
   const [contents] = await db.query("SELECT id, title, description FROM content where deleted = 0");
@@ -32,9 +33,26 @@ export async function getAllBrands(): Promise<Brand[]> {
 }
 
 export async function insertChatConversation(conversation: ChatConversation): Promise<ChatConversation> {
-  const contextIdsJson = JSON.stringify(conversation.contextIds || []);
-  const chunksJson = JSON.stringify(conversation.chunks || []);
+  try {
+    const contextIdsJson = JSON.stringify(conversation.contextIds || []);
+    const chunksJson = JSON.stringify(conversation.chunks || []);
 
-  const [result] = await db.query("INSERT INTO chat_conversations (user_id, question, answer, context_ids, chunks, latency) VALUES (?, ?, ?, ?, ?, ?)", [conversation.userId, conversation.question, conversation.answer, contextIdsJson, chunksJson, conversation.latency]);
-  return result as unknown as ChatConversation;
+    const [result] = await db.query(
+      "INSERT INTO chat_conversations (user_id, question, answer, context_ids, chunks, latency) VALUES (?, ?, ?, ?, ?, ?)",
+      [conversation.userId, conversation.question, conversation.answer, contextIdsJson, chunksJson, conversation.latency]
+    ) as any[];
+
+    const insertId = result?.insertId;
+    if (!insertId) {
+      throw new Error('Failed to get insert ID from database');
+    }
+
+    return {
+      ...conversation,
+      id: insertId.toString(),
+    };
+  } catch (error) {
+    logger.error('Failed to insert chat conversation', error);
+    throw new Error(`Database insertion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }
