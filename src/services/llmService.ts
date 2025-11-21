@@ -3,9 +3,10 @@ import { SystemMessage } from 'langchain';
 import { openaiClient } from '../config/openai.js';
 import { findSimilarChunks } from './vectorService.js';
 import { logger } from '../utils/logger.js';
-import { insertChatConversation } from './dataServices.js';
-import { ChatConversation, ChatConversationChunk } from '../types/chatConversations.js';
-import { ConversationMessage } from '../types/chatbot.js';
+import { conversationRepository } from '../repositories/conversationRepository.js';
+import { ChatConversation, ChatConversationChunk } from '../domain/types/chatConversations.js';
+import { ConversationMessage } from '../domain/types/chatbot.js';
+import { withTimeout } from '../utils/promise.js';
 
 export async function answerUserQuery(
   userId: string,
@@ -18,7 +19,7 @@ export async function answerUserQuery(
     retrievedChunks.length > 0
       ? retrievedChunks
           .map((chunk, index) => {
-            const title = chunk.metadata.title ? `【${chunk.metadata.title}】\n` : '';
+            const title = chunk.metadata.title ? `【${chunk.metadata.title as string}】\n` : '';
             return `[知识片段 ${index + 1}]\n${title}${chunk.content}`;
           })
           .join('\n\n')
@@ -31,19 +32,19 @@ export async function answerUserQuery(
     chunks: retrievedChunks.map((chunk) => ({
       vectorId: chunk.id,
       chunkIndex: chunk.metadata.chunkIndex,
-      chunkTitle: chunk.metadata.title,
+      chunkTitle: chunk.metadata.title as string,
       articleId: chunk.metadata.articleId,
       score: chunk.score,
     })),
   });
 
-  const messages = await buildMessage(query, context, history);
+  const messages = buildMessage(query, context, history);
 
-  logger.debug('LLM messages prepared', { messages: JSON.stringify(messages) });
+  logger.info('LLM messages prepared', { messages: JSON.stringify(messages) });
 
   const startTime = Date.now();
 
-  const response = await openaiClient.invoke(messages);
+  const response = await withTimeout(openaiClient.invoke(messages), 30000, 'LLM request timed out');
 
   const latency = Date.now() - startTime;
 
@@ -68,7 +69,7 @@ export async function answerUserQuery(
     chunks: retrievedChunks.map((chunk) => ({
       chunkIndex: chunk.metadata.chunkIndex as number,
       chunkTitle: chunk.metadata.title as string,
-      vectorId: chunk.id as string,
+      vectorId: chunk.id,
       score: chunk.score,
     })) as ChatConversationChunk[],
     latency: latency,
@@ -80,7 +81,7 @@ export async function answerUserQuery(
     conversation,
   });
 
-  const result = await insertChatConversation(conversation);
+  const result = await conversationRepository.insert(conversation);
 
   logger.debug('Chat conversation inserted', {
     conversationId: result.id,
@@ -114,7 +115,7 @@ export async function answerUserQuery(
   return '';
 }
 
-async function buildMessage(query: string, context: string, history: ConversationMessage[]) {
+function buildMessage(query: string, context: string, history: ConversationMessage[]) {
   const enhancedContext = context || '当前知识库中没有检索到相关内容。';
 
   // const systemPrompt = new SystemMessage(

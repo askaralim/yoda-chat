@@ -1,7 +1,7 @@
 // Handle full RAG logic (retrieve + LLM answer)
 
 import { answerUserQuery } from './llmService.js';
-import { ConversationMessage, ConversationHistory } from '../types/chatbot.js';
+import { ConversationMessage } from '../domain/types/chatbot.js';
 import { redisClient, ensureRedisConnected } from './cacheService.js';
 import { logger } from '../utils/logger.js';
 import { config } from '../config/env.js';
@@ -70,12 +70,12 @@ export class ChatbotAgent {
 
   private calculateConfidence(answer: string): number {
     if (answer.includes('没有相关信息') || answer.includes('知识库中没有')) {
-      return 0.3;
+      return Number(config.conversation.confidenceThresholds.LOW);
     }
     if (answer.includes('根据Taklip知识库') || answer.includes('推荐')) {
-      return 0.9;
+      return Number(config.conversation.confidenceThresholds.HIGH);
     }
-    return 0.7;
+    return Number(config.conversation.confidenceThresholds.MEDIUM);
   }
 
   /**

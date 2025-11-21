@@ -1,13 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import { chatbotAgent } from '../services/chatService.js';
-import { ChatbotRequest, ChatbotResponse, ConversationHistory } from '../types/chatbot.js';
+import { ChatbotRequest, ChatbotResponse, ConversationHistory } from '../domain/types/chatbot.js';
 import { CustomError } from '../middleware/errorHandler.js';
 import {
   buildKnowledgeBase,
   getKnowledgeBase,
   deleteKnowledgeBase,
 } from '../services/vectorService.js';
-import { getAllContents, getContentById } from '../services/dataServices.js';
+import { knowledgeRepository } from '../repositories/knowledgeRepository.js';
 import { logger } from '../utils/logger.js';
 
 export class ChatbotController {
@@ -18,10 +18,7 @@ export class ChatbotController {
     try {
       const { id } = req.params;
       logger.info('Knowledge add requested', { id });
-      const content = await getContentById(id as string);
-      if (!content) {
-        throw new CustomError('Content not found', 404);
-      }
+      const content = await knowledgeRepository.getContentById(id as string);
       await buildKnowledgeBase([content]);
       logger.info('Knowledge added', { id });
       res.status(200).json({ message: 'Knowledge added successfully' });
@@ -37,7 +34,7 @@ export class ChatbotController {
   async bulkImportKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       logger.info('Knowledge bulk import requested');
-      const contents = await getAllContents();
+      const contents = await knowledgeRepository.getAllContents();
       await buildKnowledgeBase(contents);
       logger.info('Knowledge bulk import completed', { count: contents.length });
       res.status(200).json({ message: 'Knowledge bulk imported successfully' });
@@ -79,7 +76,7 @@ export class ChatbotController {
     try {
       const { id } = req.params;
       logger.info('Knowledge update requested', { id });
-      const content = await getContentById(id as string);
+      const content = await knowledgeRepository.getContentById(id as string);
       if (!content) {
         throw new CustomError('Content not found', 404);
       }
@@ -112,15 +109,9 @@ export class ChatbotController {
    */
   async ask(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { question, userId }: ChatbotRequest = req.body;
+      const { question, userId } = req.body as ChatbotRequest;
 
-      if (!question || typeof question !== 'string' || question.trim().length === 0) {
-        throw new CustomError('Question is required and must be a non-empty string', 400);
-      }
-
-      if (question.length > 1000) {
-        throw new CustomError('Question is too long. Maximum 1000 characters allowed.', 400);
-      }
+      validateQuestion(question);
 
       const userIdOrDefault = userId || 'anonymous';
       logger.info('Chat question received', {
@@ -181,3 +172,20 @@ export class ChatbotController {
 }
 
 export const chatbotController = new ChatbotController();
+
+function validateQuestion(question: string) {
+  if (!question || typeof question !== 'string') {
+    throw new CustomError('Question must be a non-empty string', 400);
+  }
+  if (question.trim().length === 0) {
+    throw new CustomError('Question cannot be empty', 400);
+  }
+  if (question.length > 1000) {
+    throw new CustomError('Question exceeds maximum length of 1000 characters', 400);
+  }
+
+  // Check for potentially malicious patterns
+  if (/<script|javascript:|onerror=/i.test(question)) {
+    throw new CustomError('Invalid characters in question', 400);
+  }
+}

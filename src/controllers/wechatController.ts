@@ -1,10 +1,9 @@
 import crypto from 'crypto';
 import { parseString } from 'xml2js';
 import { Request, Response } from 'express';
-import { chatbotAgent } from '../services/chatService.js';
-import { WeChatMessage, WeChatQueryParams } from '../types/wechat.js';
+import { WeChatMessage, WeChatQueryParams } from '../domain/types/wechat.js';
 import { logger } from '../utils/logger.js';
-import { redisClient, ensureRedisConnected } from '../services/cacheService.js';
+import { wechatService } from '../services/wechatService.js';
 
 export class WeChatController {
   /**
@@ -40,7 +39,7 @@ export class WeChatController {
   /**
    * Handle incoming WeChat messages
    */
-  async handleMessage(req: Request, res: Response): Promise<void> {
+  handleMessage(req: Request, res: Response): void {
     try {
       // req.body is now a string (XML) thanks to express.text middleware
       const xmlData = req.body as string;
@@ -51,149 +50,53 @@ export class WeChatController {
       }
 
       // Parse XML to JSON - using arrow function to preserve 'this' context
-      parseString(xmlData, { explicitArray: false }, async (err: any, result: any) => {
-        if (err) {
-          logger.error('WeChat XML parsing error', err);
-          res.status(400).send('Invalid XML format');
-          return;
-        }
-
-        const message = result.xml as WeChatMessage;
-
-        logger.info('WeChat message received', { message });
-
-        const { ToUserName, FromUserName, MsgType, Content, MsgId } = message;
-
-        // Echo the message back to WeChat server immediately (required by WeChat)
-        res.writeHead(200, { 'Content-Type': 'application/xml' });
-
-        // Check for duplicate message (WeChat retries if no response within 5 seconds)
-        if (MsgId) {
-          await ensureRedisConnected();
-          const cacheKey = `wechat:msg:${MsgId}`;
-          const cachedResponse = await redisClient.get(cacheKey);
-
-          if (cachedResponse) {
-            logger.info('WeChat duplicate message detected, returning cached response', {
-              MsgId,
-              fromUser: FromUserName,
-            });
-            res.end(cachedResponse);
+      parseString(
+        xmlData,
+        { explicitArray: false },
+        (err: Error | null, result: { xml?: WeChatMessage }) => {
+          if (err) {
+            logger.error('WeChat XML parsing error', err);
+            res.status(400).send('Invalid XML format');
             return;
           }
-        }
 
-        // Only process text messages
-        if (MsgType === 'text' && Content) {
-          try {
-            // Get AI response from chatbot agent
-            const answer = await chatbotAgent.processMessage(Content, FromUserName);
-            logger.info('WeChat text message processed', {
-              fromUser: FromUserName,
-              contentPreview: Content.slice(0, 80),
-              MsgId,
-            });
+          if (!result?.xml) {
+            logger.error('WeChat XML parsing error: missing xml property');
+            res.status(400).send('Invalid XML format');
+            return;
+          }
 
-            // Format XML response
-            const responseXml = WeChatController.formatTextResponse(
-              ToUserName,
-              FromUserName,
-              answer
-            );
+          // Use IIFE to handle async operations inside the callback
+          void (async () => {
+            const message = result.xml as WeChatMessage;
 
-            // Cache the response by MsgId to handle WeChat retries (TTL: 24 hours)
-            if (MsgId) {
-              await ensureRedisConnected();
-              const cacheKey = `wechat:msg:${MsgId}`;
-              await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
+            // Echo the message back to WeChat server immediately (required by WeChat)
+            res.writeHead(200, { 'Content-Type': 'application/xml' });
+
+            try {
+              // Process message through service (handles duplicate detection, processing, caching)
+              const response = await wechatService.processMessage(message);
+              res.end(response.xml);
+            } catch (error) {
+              logger.error('Error processing WeChat message', error);
+              // Send error response
+              const errorMsg = '抱歉，我遇到了一个错误，无法回答你的问题。';
+              const errorXml = wechatService.formatTextResponse(
+                message.ToUserName,
+                message.FromUserName,
+                errorMsg
+              );
+              // Cache error response to prevent retry processing
+              await wechatService.cacheResponse(message.MsgId, errorXml);
+              res.end(errorXml);
             }
-
-            res.end(responseXml);
-          } catch (error) {
-            logger.error('Error processing WeChat message', error);
-            const errorMsg = '抱歉，我遇到了一个错误，无法回答你的问题。';
-            const responseXml = WeChatController.formatTextResponse(
-              ToUserName,
-              FromUserName,
-              errorMsg
-            );
-
-            // Cache error response as well to prevent retry processing
-            if (MsgId) {
-              await ensureRedisConnected();
-              const cacheKey = `wechat:msg:${MsgId}`;
-              await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
-            }
-
-            res.end(responseXml);
-          }
-        } else if (MsgType === 'event') {
-          // Handle events
-          const event = message.Event;
-          const eventKey = message.EventKey;
-          logger.debug('WeChat event received', { event, eventKey, fromUser: FromUserName });
-
-          let responseXml: string;
-          if (event === 'subscribe') {
-            // Handle subscribe event
-            responseXml = WeChatController.formatTextResponse(
-              ToUserName,
-              FromUserName,
-              'hello，欢迎关注「taklip太离谱」！\n如果有想了解的问题，可以直接在输入框发送信息，如果小助手无法回答就会去联系管事儿的。\n\n「taklip太离谱」还有个交流群，用于分享交流，有意加入可以添加微信：asikar\n Cheers!!'
-            );
-          } else {
-            responseXml = WeChatController.formatTextResponse(
-              ToUserName,
-              FromUserName,
-              event || ''
-            );
-          }
-
-          // Cache event response to prevent duplicate processing
-          if (MsgId) {
-            await ensureRedisConnected();
-            const cacheKey = `wechat:msg:${MsgId}`;
-            await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
-          }
-
-          res.end(responseXml);
-        } else {
-          // Handle non-text messages or events
-          const defaultMsg = 'Please send me a text message.';
-          const responseXml = WeChatController.formatTextResponse(
-            ToUserName,
-            FromUserName,
-            defaultMsg
-          );
-
-          // Cache default response to prevent duplicate processing
-          if (MsgId) {
-            await ensureRedisConnected();
-            const cacheKey = `wechat:msg:${MsgId}`;
-            await redisClient.setEx(cacheKey, 3600, responseXml); // 1 hour TTL
-          }
-
-          res.end(responseXml);
+          })();
         }
-      });
+      );
     } catch (error) {
       logger.error('Error handling WeChat message', error);
       res.status(500).send('Internal server error');
     }
-  }
-
-  /**
-   * Format text response as WeChat XML message
-   */
-  static formatTextResponse(toUser: string, fromUser: string, content: string): string {
-    const timestamp = Math.floor(Date.now() / 1000);
-    return `<xml>
-      <ToUserName><![CDATA[${fromUser}]]></ToUserName>
-      <FromUserName><![CDATA[${toUser}]]></FromUserName>
-      <CreateTime>${timestamp}</CreateTime>
-      <MsgType><![CDATA[text]]></MsgType>
-      <Content><![CDATA[${content}]]></Content>
-    </xml>`;
   }
 }
 

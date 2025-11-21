@@ -135,46 +135,6 @@ export async function buildKnowledgeBase(items: KnowledgeItem[]): Promise<void> 
   logger.info('Knowledge ingestion finished', { processed: items.length });
 }
 
-// export async function buildKnowledgeBase(articles: any[]) {
-//     const collections = await qdrantClient.getCollections();
-//     const exists = collections.collections.some(c => c.name === "knowledge");
-
-//     if (!exists) {
-//         await qdrantClient.createCollection("knowledge", {
-//             vectors: { size: parseInt(config.embedding.dimensions), distance: "Cosine" },
-//         });
-//     }
-
-//     const points: any[] = [];
-//     let chunkCounter = 0; // Global counter for unique numeric IDs
-
-//     for (const article of articles) {
-//         const text = extractTextFromHTML(article.description);
-
-//         const chunks = await chunkText(text, article.title);
-
-//         for (let i = 0; i < chunks.length; i++) {
-//             const chunk = chunks[i];
-//             if (chunk) {
-//                 const embedding = await getEmbedding(chunk);
-
-//                 points.push({
-//                     id: chunkCounter++,
-//                     vector: embedding,
-//                     payload: {
-//                         articleId: article.id, // Store article ID in payload
-//                         chunkIndex: i, // Store chunk index in payload
-//                         source: article.name || article.title,
-//                         text: chunk,
-//                     },
-//                 });
-//             }
-//         }
-//     }
-//     await qdrantClient.upsert("knowledge", { points });
-//     console.log("✅ Knowledge base built successfully");
-// }
-
 export async function getKnowledgeBase(id: string): Promise<string> {
   const existing = await qdrantClient.scroll(qdrantCollectionName, {
     filter: {

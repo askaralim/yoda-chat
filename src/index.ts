@@ -5,7 +5,7 @@ import { chatbotRouter } from './routes/chatbot.js';
 import { adminRouter } from './routes/admin.js';
 import { securityHeaders, corsConfig, rateLimiter } from './middleware/security.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
-import { getAllContents, getAllBrands } from './services/dataServices.js';
+import { knowledgeRepository } from './repositories/knowledgeRepository.js';
 import { buildKnowledgeBase } from './services/vectorService.js';
 import { config } from './config/env.js';
 import { logger } from './utils/logger.js';
@@ -98,9 +98,12 @@ const server = app.listen(PORT, () => {
 });
 
 if (config.features.bootstrapOnStart) {
-  (async () => {
+  void (async () => {
     try {
-      const [contents, brands] = await Promise.all([getAllContents(), getAllBrands()]);
+      const [contents, brands] = await Promise.all([
+        knowledgeRepository.getAllContents(),
+        knowledgeRepository.getAllBrands(),
+      ]);
 
       const items = [
         ...contents.map((content) => ({ ...content, type: 'content' })),
@@ -115,7 +118,9 @@ if (config.features.bootstrapOnStart) {
     } catch (error) {
       logger.error('Knowledge base bootstrap failed', error);
     }
-  })();
+  })().catch((error) => {
+    logger.error('Knowledge base bootstrap failed', error);
+  });
 } else {
   logger.info('RAG bootstrap on start disabled');
 }

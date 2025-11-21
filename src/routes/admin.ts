@@ -2,7 +2,7 @@ import express from 'express';
 
 import { config } from '../config/env.js';
 import { buildKnowledgeBase } from '../services/vectorService.js';
-import { getAllContents, getAllBrands } from '../services/dataServices.js';
+import { knowledgeRepository } from '../repositories/knowledgeRepository.js';
 import { logger } from '../utils/logger.js';
 
 export const adminRouter = express.Router();
@@ -42,7 +42,7 @@ adminRouter.post('/reindex', async (req, res, next) => {
     const items = [];
 
     if (allowContent) {
-      const contents = await getAllContents();
+      const contents = await knowledgeRepository.getAllContents();
       logger.info('Content size: ' + contents.length);
       items.push(
         ...contents.map((content) => ({
@@ -53,7 +53,7 @@ adminRouter.post('/reindex', async (req, res, next) => {
     }
 
     if (allowBrand) {
-      const brands = await getAllBrands();
+      const brands = await knowledgeRepository.getAllBrands();
       logger.info('Brand size: ' + brands.length);
       items.push(
         ...brands.map((brand) => ({
